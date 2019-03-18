@@ -1,0 +1,322 @@
+---
+title: "STAT456_FINALTERM_JIHOONWOO"
+author: "JIHOON WOO"
+date: "2018 12 16"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+# Package downloads
+```{r,echo=TRUE}
+if (!require("MVA")){
+    install.packages("MVA")
+    require("MVA")
+    }
+if (!require("ca")){
+    install.packages("ca")
+    require("ca")
+    }
+if (!require("FactoMineR")){
+    install.packages("FactoMineR")
+    require("FactoMineR")
+    }
+if (!require("ggrepel")){
+    install.packages("ggrepel")
+    require("ggrepel")
+    }
+if (!require("factoextra")){
+    install.packages("factoextra")
+    require("factoextra")
+    }
+if (!require("cluster")){
+    install.packages("cluster")
+    require("cluster")
+    }
+```
+
+## Data Import and fundamental analysis
+```{r, echo=TRUE}
+# Import file
+players <- read.csv('NBA_Dataset.csv', header = TRUE)
+# rownames(players) <- players$Player
+# players[-c(1)]
+dim(players)
+
+# Make names of players as a row & Abbreviate names of players
+NBA <- players[-c(1)]  
+rownames(NBA) <- abbreviate(players[,1])
+summary(NBA)
+
+# Variable Abbreviation
+a <- c("Season","Position","Height","Weight","Games","Minutes","Points","Field Goal %","3-Point %","Free Throw %","Rebound","Assist","Turnover","Steal","Block","Personal Foul Commited")
+b <- colnames(NBA)
+c <- rbind(a,b)
+
+# Removed Season & Number of matches played
+NBA <- NBA[-c(1,5)] 
+ordered.NBA <- NBA[order(NBA$Position),] # Reorder the dataset by position
+
+# Let's find covariance & corrleations
+cov1 <- cov(NBA[,-c(1)])
+corr <- cor(NBA[,-c(1)])
+ 
+# Subsetting by position
+#colMeans(subset(NBA, Position == "Center")[,-c(1)])
+#colMeans(subset(NBA, Position == "Forward")[,-c(1)])
+#colMeans(subset(NBA, Position == "Guard")[,-c(1)])
+
+#cor(subset(NBA, Position = "Center")[,-c(1)])
+#cor(subset(NBA, Position = "Forward")[,-c(1)])
+#cor(subset(NBA, Position = "Guard")[,-c(1)])
+
+# Linear Regression
+# regres <- lm(Points ~ Height++Weight+Minutes+FGP+X3PP+FTP, data = NBA) 
+# summary(regres)
+```
+
+## Bivariate Analysis
+```{r,echo=TRUE}
+# STL & Points
+# par(mfrow=c(1,1),cex.main=1.5,cex.lab=1,cex.axis=1,pty="s")
+#round(corr,4)
+#a <- players[,c("Points","STL")]
+#lab1 <- c("Anthony Bennett","Kwame Brown","Yao Ming","Deandre Ayton")
+#outliers1 <- match(lab1,players$Player)
+#bvbox(a,main="Robust",xlab="STL",ylab="Points",method="robust")
+#text(a$Points[outliers1],a$STL[outliers1],labels = lab1, col = c("red"), cex = 1, pos =c(3,1,1,1))
+
+# Rebound & Block
+# To find how much 2 important skills of big-man aspect are correlated
+# par(mfrow=c(1,2))
+b <- players[,c("REB","BLK")]
+lab2 <- c("Shaquille O'Neal","Glenn Robinson","Blake Griffin")
+outliers2 <- match(lab2,players$Player)
+bvbox(b,main="Robust",xlab="Rebound",ylab="Block",method="robust")
+text(b$REB[outliers2], b$BLK[outliers2], labels = lab2,col = c("red"), cex = 1, pos = c(1,2,1,1))
+
+# Assist & Turnover
+# To find out whether ball-handlers tend to make more mistakes
+c <- players[,c("TOV","AST")]
+lab3 <- c("Ben Simmons","John Wall","Allen Iverson","Tim Duncan")
+outliers3 <- match(lab3, players$Player)
+bvbox(c,main="Robust",xlab="Turnover",ylab="Assist",method="robust")
+text(c$TOV[outliers3],c$AST[outliers3], labels = lab3,col = c("red"), cex = .8, pos = c(1,2,1,1))
+
+```
+
+## Star Plots
+```{r,echo=TRUE}
+# Star plots using Points, Rebound, Block, Assist and Steal as variables
+stars(scale(NBA[,c("Points","REB","BLK","AST","STL")]), nrow=5, ncol=6, main = "Star Plots with 5 variables")
+
+
+```
+
+## Principal Component Analysis 
+```{r,echo=TRUE}
+NBA.NOpos <- NBA[-c(1)]
+pca <- princomp(scale(NBA.NOpos))
+summary(pca, loadings = TRUE)
+
+res.pca <- PCA(scale(NBA.NOpos), graph = TRUE)
+summary(res.pca)
+fviz_pca_var(res.pca, col.var = "black")
+
+pca.revised2 <- princomp(scale(NBA.NOpos[-c(27),]))
+summary(pca.revised2, loadings = TRUE)
+
+pca.revised <- PCA(scale(NBA.NOpos[-c(27),]))
+summary(pca.revised)
+
+# Scree Plot of PC variances
+#par(cex.lab=1.5, cex.axis=1.5)
+#eigvals <-pca$sdev^2
+#k <- length(eigvals)
+#plot(1:k, eigvals,type = "b",xlab = "i",ylab=expression(lambda[i]))
+
+# Principal Component Scores
+plot(pca$scores[,1],pca$scores[,2],xlab = "PC1",ylab = "PC2")
+#geom_text_repel(data=NBA, aes(x=pca$scores[,1],y=pca$scores[,2],label=rownames(NBA)),
+#                size=4, col = "darkgreen")
+text(pca$scores[,1],pca$scores[,2],abbreviate(rownames(NBA)),cex=0.9,col="red",pos = c(1,1,1,1))
+bvbox(cbind(pca$scores[,1],pca$scores[,2]),add=TRUE)
+
+plot(pca$scores[,1],pca$scores[,3],xlab = "PC1",ylab = "PC3", type = "n")
+text(pca$scores[,1],pca$scores[,3],abbreviate(rownames(NBA)),cex=1,col="red")
+bvbox(cbind(pca$scores[,1],pca$scores[,3]),add=TRUE)
+
+plot(pca$scores[,2],pca$scores[,3],xlab = "PC2",ylab = "PC3")
+text(pca$scores[,2],pca$scores[,3],abbreviate(rownames(NBA)),cex=1,col="red")
+bvbox(cbind(pca$scores[,2],pca$scores[,3]),add=TRUE)
+
+# Pairwise plots of PCA
+r <- range(pca$scores[,1:3])
+pairs(pca$scores[,1:3], xlim=r, ylim=r,
+      panel = function(x,y,...){
+          bvbox(cbind(x,y), add = TRUE)
+      })
+
+# By looking at the plot, I observed that PC1 & PC3 most likely contain a linear relationship, so most of the variability can be explained by PC1 & PC2. When looking at the plot PC1&PC2, O'Neal was a huge outlier and it made me research about him online. He was the top rookie in alandslide, having receid
+# https://www.nytimes.com/1993/05/07/sports/o-neal-shatters-rookie-vote.html
+
+# Plot of PC1 & PC2 coeffiients (Loadings) -> easy to verify which coefficients are significant
+plot(pca$loadings[,1],pca$loadings[,2],xlab = "PC1",ylab = "PC2", type = "n", main = "Variables Coefficients")
+textlab <- rownames(pca$loadings) # Excluding minutes
+text(pca$loadings[,1], pca$loadings[,2], labels = textlab)
+
+# Plot in 1st two principal components based on their positions
+z1 <- pca$scores[,1]
+z2 <- pca$scores[,2]
+NBA$Position <- as.numeric(players$Position)
+names <- rownames(NBA)
+plot(z1,z2,xlab="PC1",ylab="PC2",type="n")
+Center <- NBA$Position == "1"
+text(z1[Center],z2[Center],labels = names[Center],col = "red", cex = .9)
+Forward <- NBA$Position == "2"
+text(z1[Forward],z2[Forward],labels= names[Forward],col="blue", cex = .9)
+Guard <- NBA$Position == "3"
+text(z1[Guard],z2[Guard],labels= names[Guard],col="magenta", cex = .9)
+colors <- c("red","blue","magenta")
+leg.txt <- c("Center","Forward","Guard")
+legend("topright",legend=leg.txt,fill=colors)
+
+
+z1 <- pca$scores[,1]
+z3 <- pca$scores[,3]
+plot(z1,z3,xlab="PC1",ylab="PC3",type="n")
+Center <- NBA$Position == "1"
+text(z1[Center],z3[Center],labels = names[Center],col = "red", cex = .9)
+Forward <- NBA$Position == "2"
+text(z1[Forward],z3[Forward],labels= names[Forward],col="blue" , cex = .9)
+Guard <- NBA$Position == "3"
+text(z1[Guard],z3[Guard],labels= names[Guard],col="magenta", cex = .9)
+colors <- c("red","blue","magenta")
+leg.txt <- c("Center","Forward","Guard")
+legend("topright",legend=leg.txt,fill=colors)
+
+# Biplot
+biplot(pca)
+# geom_text_repel(data=vPCs, aes(x=vPCi,y=vPCj,label=rownames(vPCs)), size=4,col = "darkgreen")
+
+# Biplot with comparisons
+fviz_pca_biplot(pca, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969"  # Individuals color
+                )
+fviz_pca_biplot(pca.revised, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969"  # Individuals color
+                )
+# Correspondence Analysis
+camodel <- ca(NBA[-c(1,10,13)])
+par(pty="s",cex=.85)
+plot(camodel, labels=2)
+legend("bottomright", legend = c("Players","Personal Stats"), col = c("Blue","Red"),pch = c(16,17))
+
+```
+
+## Cluster Aanysis 
+
+```{r, echo=TRUE}
+# Agglomerative
+# Single Linkage
+NBA <- NBA[-c(1)]
+stree <- hclust(dist(NBA), method = "single")
+plot(stree,labels=rownames(NBA),ylab="Distance", main="Single linkage")
+# Complete Linkage
+ctree <- hclust(dist(NBA),method="complete")
+plot(ctree,labels=rownames(NBA),ylab="Distance", main="Complete linkage")
+# Average Linkage
+mtree <- hclust(dist(NBA),method="average")
+plot(mtree,labels=rownames(NBA),ylab="Distance", main="Average linkage")
+
+four <- cutree(ctree,h=38) # Clusters of 4
+player.clus <- lapply(1:4,function(nc) players$Player[four==nc])
+mean.clus <- lapply(1:4,function(i) apply(NBA[four==i,],2,mean))
+
+# K-means Clustering
+n <- dim(NBA)[1]; k <- 7
+wss <- rep(0,k)
+xm <- apply(NBA,2,mean)
+for(i in 1:n){
+wss[1] <- wss[1]+sum((NBA[i,]-xm)^2)
+}
+for(i in 2:k){
+model <- kmeans(NBA,i)
+wss[i] <- sum(model$withinss)
+}
+plot(1:k,wss,type="b",xlab="Number of clusters",
+ylab="Within cluster sum of squares",main="Scree plot for NBA 1st Draft Pick Players")
+
+# K-means clustering with 4 clusters
+means<- 4
+km4 <- kmeans(scale(NBA),means, nstart = 10) # No consideration of their position, but classifing them by their personal stats
+c.names <- as.character(players$Player) # clustering without position
+for(i in 1:means){print(paste("Cluster",i))
+print(c.names[km4$cluster == i])
+}
+fviz_cluster(km4,data=scale(NBA)) + ggtitle("K-means Clutering when k = 4")
+
+# silhouette(km4)
+
+
+# factoring <- as.factor(km4$cluster)
+# ggplot(data = pca, aes(pca$scores[,1], pca$scores[,2],color=factoring)) + geom_point()
+
+km.res <- eclust(scale(NBA[-c(1)]), "kmeans", k= 4, graph = TRUE)
+fviz_cluster(km.res, frame.type="norm")
+
+# Visualizing the silhouette of Clusters
+# Silhouette coeffcient measures how well an observation is clustered and it estimates the average distance between clusters (the average silhouette width). Observation with negative silhouette are probably placed in the wrong cluster.
+
+
+z1 <- pca$scores[,1]
+z2 <- pca$scores[,2]
+plot(z1,z2,xlab="PC1",ylab="PC2",type="n")
+cluster1 <- km4$cluster == "1"
+text(z1[cluster1],z2[cluster1],labels = names[cluster1],col = "red", cex = .9)
+cluster2 <- km4$cluster == "2"
+text(z1[cluster2],z2[cluster2],labels= names[cluster2],col="blue", cex = .9)
+cluster3 <- km4$cluster == "3"
+text(z1[cluster3],z2[cluster3],labels= names[cluster3],col="magenta", cex = .9)
+cluster4 <- km4$cluster == "4"
+text(z1[cluster4], z2[cluster4], labels = names[cluster4], col = "black", cex = .9)
+colors <- c("red","blue","magenta","black")
+leg.txt <- c("Cluster1","Cluster2","Cluster3","Cluster4")
+legend("topright",legend=leg.txt,fill=colors)
+
+z1 <- pca$scores[,1]
+z3 <- pca$scores[,3]
+plot(z1,z3,xlab="PC1",ylab="PC3",type="n")
+cluster1 <- km4$cluster == "1"
+text(z1[cluster1], z3[cluster1],labels = names[cluster1],col = "red", cex = .9)
+cluster2 <- km4$cluster == "2"
+text(z1[cluster2], z3[cluster2],labels= names[cluster2],col="blue", cex = .9)
+cluster3 <- km4$cluster == "3"
+text(z1[cluster3], z3[cluster3],labels= names[cluster3],col="magenta", cex = .9)
+cluster4 <- km4$cluster == "4"
+text(z1[cluster4], z3[cluster4], labels = names[cluster4], col = "black", cex = .9)
+colors <- c("red","blue","magenta","black")
+leg.txt <- c("Cluster1","Cluster2","Cluster3","Cluster4")
+legend("topright",legend=leg.txt,fill=colors)
+
+z2 <- pca$scores[,2]
+z3 <- pca$scores[,3]
+plot(z2,z3,xlab="PC2",ylab="PC3",type="n")
+cluster1 <- km4$cluster == "1"
+text(z2[cluster1], z3[cluster1],labels = names[cluster1],col = "red", cex = .9)
+cluster2 <- km4$cluster == "2"
+text(z2[cluster2], z3[cluster2],labels= names[cluster2],col="blue", cex = .9)
+cluster3 <- km4$cluster == "3"
+text(z2[cluster3], z3[cluster3],labels= names[cluster3],col="magenta", cex = .9)
+cluster4 <- km4$cluster == "4"
+text(z2[cluster4], z3[cluster4], labels = names[cluster4], col = "black", cex = .9)
+colors <- c("red","blue","magenta","black")
+leg.txt <- c("Cluster1","Cluster2","Cluster3","Cluster4")
+legend("topright",legend=leg.txt,fill=colors)
+
+# only 60% won the rookie of the year
+```
+
