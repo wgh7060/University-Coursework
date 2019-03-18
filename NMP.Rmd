@@ -1,0 +1,14 @@
+---
+title: "NMP"
+author: "JIHOON WOO"
+date: "2019??? 3??? 7???"
+output: pdf_document
+---
+
+```{r, echo=TRUE}
+
+
+
+
+
+```
