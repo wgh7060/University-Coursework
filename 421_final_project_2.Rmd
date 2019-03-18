@@ -1,0 +1,236 @@
+---
+title: "Why My Flight Has Been Delayed Again"
+author: "David Kim and Jihoon Woo"
+date: "2018/ 12/ 20"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+header-includes: \usepackage{setspace}\doublespacing
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if (!require("dplyr")){
+    install.packages("dplyr")
+    require("dplyr")
+    }
+if (!require("leaps")){
+    install.packages("leaps")
+    require("leaps")
+    }
+if (!require("glmulti")){
+    install.packages("glmulti")
+    require("glmulti")
+    }
+if (!require("rJava")){
+    install.packages("rJava")
+    require("rJava")
+    }
+if (!require("ggplot2")){
+    install.packages("ggplot2")
+    require("ggplot2")
+}
+```
+
+```{r}
+#Data Load
+data.flight <- read.csv("airport4.csv")
+#Checking whether there is NAs 
+colSums(is.na(data.flight))
+#Data Modification
+data.flight$Airtime[is.na(data.flight$Airtime)] = 0 # switching NAs into 0 for the analysis
+data.flight = data.flight %>%
+  mutate(Depdelay = ifelse(Depdelay > 0,1,0),
+         Weather = ifelse(Weather > 0,1,0),
+         Lateaircraft = ifelse(Lateaircraft > 0,1,0),
+         Deptime=cut(Deptime,breaks=c(-1,5,12,19,24),
+                     labels=c("Early morning","Morning","Afternoon","Evening")),
+         Carrier=as.factor(Carrier),
+         Depdelay=as.factor(Depdelay),
+         Weather=as.factor(Weather),
+         Lateaircraft=as.factor(Lateaircraft)
+         )
+
+#Checking again whether there is more NAs
+colSums(is.na(data.flight))
+
+#bestglms between AIC vs. BIC
+allSub=glmulti::glmulti(y=Depdelay~., data=data.flight,fitfunction="glm",level=1,method="h",
+                        crit="aic",family=binomial(link="logit"),confsetsize=4)
+glmulti::weightable(allSub)
+coef(allSub)
+
+# glm BIC
+#allSubBIC <- glmulti::glmulti(y = Depdelay ~ ., 
+ #                        data = data.flight, fitfunction = "glm", level=1, 
+  #                       method = "h", crit = "bic", family = binomial(link = "logit"),
+   #                      confsetsize = 4)
+#glmulti::weightable(allSubBIC)
+#coef(allSubBIC)
+
+#subsetting data
+allSub=glmulti::glmulti(y=Depdelay~., data=data.flight,fitfunction="glm",level=1,
+                        method="g",crit="aic",family=binomial(link="logit"),confsetsize=4)
+knitr::kable(glmulti::weightable(allSub))
+
+allSubBIC <- glmulti::glmulti(y = Depdelay ~ ., 
+                         data = data.flight, fitfunction = "glm", level=1, 
+                         method = "g", crit = "bic", family = binomial(link = "logit"),
+                         confsetsize = 4)
+
+
+#glm to see whether the variables are important
+x=glm(formula=Depdelay~Airline+Origin+Deptime+Airtime+
+          Distance+Carrier+Weather+Lateaircraft,data=data.flight,family=binomial)
+knitr::kable(summary(x)$coefficients)
+
+#Odd Ratio vs Airlines
+table=table(data.flight$Airline, data.flight$Depdelay)
+Counts=array(data=c(4799,712,2821,1794,1007,7534,3825,403,2505,1173,673,5961),
+             dim=c(6,2),dimnames=list(Airlines=c("American", "Alaska","Jetblue","Delta","Spirit","United"),Delay=c("No","Yes")))
+knitr::kable(Counts)
+CountsP =Counts/rowSums(Counts)
+knitr::kable(CountsP)
+OR=data.frame(AA=round(CountsP[1,2]/CountsP[1,1],3),
+              AS=round(CountsP[2,2]/CountsP[2,1],3),B6=round(CountsP[3,2]/CountsP[3,1],3),
+              DL=round(CountsP[4,2]/CountsP[4,1],3),NK=round(CountsP[5,2]/CountsP[5,1],3),
+              UA=round(CountsP[6,2]/CountsP[6,1],3))
+colnames(OR)=c("American Airlines","Alaska Airlines",
+               "JetBlue Airlines","Delta Airlines","Spirit Airlines","United Airlines")
+for(i in 1:length(OR)){
+  cat("For ",colnames(OR)[i],", the odds of having flight delay were ",OR[1,i],
+      ", \n meaning there were ",round(OR[1,i]*100,0)," delay flights for every 100 flights. \n")
+}
+
+#heavy Delay JetBlue vs smallest Delay Alaska Odd Ratios
+cat("The Odds of having a delayed flight for Jetblue Airlines were ",OR[1,3]/OR[1,2],
+    " times the estimated odds \n for Alaska Airlines. For Every 100 delayed
+    flights for Alaska Airlines, we would expect to see ",round(OR[1,3]/OR[1,2]*100,0),
+    " for Jetblue Airlines.")
+
+##OR CI
+PropCIs::orscoreci(2505,(2821+2505),403,(403+712),0.95)
+glue::glue("With 95% confidence, the oodds of a success is between 7.917 and
+           9.579 times as large \n when there is a delayed Spirit Airlines flight than when there is a delayed     
+           Alaska Airlines.")
+
+#Barplot
+barplot(table,beside=T,legend=T)
+
+```
+
+```{r Airport OR}
+#Odd Ratio vs Airport
+table2=table(data.flight$Origin, data.flight$Depdelay)
+Counts2=array(data=c(8651,6052,3964,6661,4371,3508),dim=c(3,2),dimnames=list(Origin=c("O'hare", "Atlanta","Newark"),Delay=c("No","Yes")))
+knitr::kable(Counts2)
+CountsP2 =Counts2/rowSums(Counts2)
+knitr::kable(CountsP2)
+OR2=data.frame(Ohare=round(CountsP2[1,2]/CountsP2[1,1],3),
+               Atlanta=round(CountsP2[2,2]/CountsP2[2,1],3),
+               Newark=round(CountsP2[3,2]/CountsP2[3,1],3))
+colnames(OR2)=c("O'hare Airport","Atlanta Airport","Newark Airport")
+for(i in 1:length(OR2)){
+  cat("For ",colnames(OR2)[i],", the odds of having flight delay were "
+      ,OR2[1,i],", \n meaning there were "
+      ,round(OR2[1,i]*100,0)," delay flights for every 100 flights. \n")
+}
+
+#heavy Delay airport Newark vs smallest Delay airport O'hare Odd Ratios
+cat("The Odds of having a delayed flight at Newark Airport were "
+    ,OR2[1,3]/OR2[1,1]," times the estimated odds \n at O'hare Airport. 
+    For Every 100 delayed flights at O'hare Airport, we would expect to see "
+    ,round(OR2[1,3]/OR2[1,1]*100,0), " for Newark Airport.")
+
+# CI of OR airport
+PropCIs::orscoreci(3508,(3508+3964),6661,(6661+8651),0.95)
+glue::glue("With 95% confidence, the oodds of a success is between 1.044 and 
+           1.264 times as large \n when there is a delayed Spirit Airlines 
+           flight than when there is a delayed Alaska Airlines.")
+#Barplot
+barplot(table2,beside=T,legend=T)
+
+```
+
+```{r Time OR}
+#Odd Ratio vs Time
+table3=table(data.flight$Deptime, data.flight$Depdelay)
+Counts3=array(data=c(1354,9818,5988,1507,331,4360,6565,3284),
+              dim=c(4,2),dimnames=list(Deptime=c("Early Morning", "Morning", "Afternoon", 
+                                                 "Evening"),Delay=c("No","Yes")))
+knitr::kable(Counts3)
+CountsP3 =Counts3/rowSums(Counts3)
+knitr::kable(CountsP3)
+OR3=data.frame(EarlyMorning=round(CountsP3[1,2]/CountsP3[1,1],3),
+               Morning=round(CountsP3[2,2]/CountsP3[2,1],3),
+               Afternoon=round(CountsP3[3,2]/CountsP3[3,1],3),
+               Evening=round(CountsP3[4,2]/CountsP3[4,1],3))
+colnames(OR3)=c("Early Morning", "Morning", "Afternoon", "Evening")
+for(i in 1:length(OR3)){
+  cat("For ",colnames(OR3)[i],", the odds of having flight delay were "
+      ,OR3[1,i],", \n meaning there were ",round(OR3[1,i]*100,0),
+      " delay flights for every 100 flights. \n")
+}
+
+#heavy Delay time evening vs smallest Delay time early morning Odd Ratios
+cat("The Odds of having a delayed flight in evening were ",OR3[1,4]/OR3[1,1],
+    " times the estimated odds \n in early morning. For Every 100 delayed 
+    flights in early morning, we would expect to see "
+    ,round(OR3[1,4]/OR3[1,1]*100,0), " in evening.")
+
+# CI of OR time
+PropCIs::orscoreci(3284,(3284+1507),331,(331+1354),0.95)
+glue::glue("With 95% confidence, the oodds of a success is between 1.044 and
+           1.264 times as large \n when there is a delayed Spirit Airlines 
+           flight than when there is a delayed Alaska Airlines.")
+
+#Barplot
+barplot(table3,beside=T,legend=T)
+
+```
+
+```{r ggplot}
+p <- ggplot2::qplot(data.flight$Airtime,x$fitted.values,color = data.flight$Airline)
+p + labs(x = "Airtime", y = "Departure Delay", title= "Departure Delay vs. Airtime")
+
+```
+
+```{r Poisson}
+##New dataset for Poisson
+data.flight2=read.csv("airport4.csv")
+#Checking whether there is NAs 
+colSums(is.na(data.flight2))
+#Data Modification
+data.flight2$Airtime[is.na(data.flight2$Airtime)] = 0
+# data.flight2=data.flight2%>%
+#   mutate(Weather = ifelse(Weather > 0,1,0),
+#          Lateaircraft = ifelse(Lateaircraft > 0,1,0),
+#          Deptime=cut(Deptime,breaks=c(-1,5,12,19,24),labels=c("Early morning","Morning","Afternoon","Evening")),
+#          Carrier=as.factor(Carrier),
+#          Depdelay=as.numeric(Depdelay),
+#          Weather=as.factor(Weather),
+#          Lateaircraft=as.factor(Lateaircraft)
+#          )
+
+#Checking again whether there is more NAs
+colSums(is.na(data.flight2))
+
+
+#Poisson Regression
+xx=glm(data=data.flight2,
+       formula=Depdelay~Airline+Origin+Deptime+Airtime+Distance+Carrier+Weather+Lateaircraft,
+       family=poisson(link=log))
+knitr::kable(summary(xx)$coefficients)
+
+##American air 180 min flight vs 500 min flight from Ohare airport
+## American Airline 1 hour of increase from O'hare Airport 
+mu.hat240=exp(-1.6855033-0.0026262*240)
+mu.hat180=exp(-1.6855033-0.0026262*180)
+PC.hat=round(100*(mu.hat240/mu.hat180 -1),2)
+glue::glue("The estimated percent change is {PC.hat}% for a unit that flights 3 hours compared to 4 hours")
+glue::glue("For an increase of 1 hours flight time, \n the estimated percent change in the average minute of delay is {PC.hat}%.")
+
+```
+#5. Result
