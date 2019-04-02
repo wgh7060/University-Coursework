@@ -1,0 +1,392 @@
+---
+title: "4-H National Mentoring Program"
+author: "JIHOON WOO"
+date: "March 7, 2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+## Packages and working directory
+```{r, echo=TRUE}
+if (!require("ggplot2")){
+    install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+    require("ggplot2")
+}
+if (!require("dplyr")){
+    install.packages("dplyr")
+    require("dplyr")
+}
+if (!require("car")){
+    install.packages("car")
+    require("car")
+}
+if (!require("readxl")){
+    install.packages("readxl")
+    require("readxl")
+}
+if (!require("nnet")){
+    install.packages("nnet")
+    require("nnet")
+}
+
+```
+
+# 2017 analysis
+```{r, echo=TRUE}
+pre17 <- read_xlsx("C:/Users/Ji Hoon/Desktop/Data Analysis/2017/WI pre NMP7raw_cleansed.xlsx")
+post17 <- read_xlsx("C:/Users/Ji Hoon/Desktop/Data Analysis/2017/Wisconsin_FinalRaw NMP7_cleansed.xlsx")
+
+pre17 <- pre17[,-c(1:2)] %>% filter(pre17$IDENTIFY != "#N/A")
+# removing vlookup columns & N=53 matched sample size
+post17 <- post17[-c(1:2)] %>% filter(post17$IDENTIFY != "#N/A") 
+# matching paired sample!
+a1 <- pre17$IDENTIFY %in% post17$IDENTIFY # 50
+a2 <- post17$IDENTIFY %in% pre17$IDENTIFY # 50 
+a3 <- with(pre17, IDENTIFY[a1 %in% TRUE])
+a4 <- with(post17, IDENTIFY[a2 %in% TRUE])
+a3[duplicated(a3)] # 147144
+a4[duplicated(a4)] # 136861 are duplicates!
+a3 <- a3[a3!= 147144 & a3!= 136861] 
+a4 <- a4[a4!= 147144 & a4!= 136861] # finally we have 45 paired data
+pre17 <- subset(pre17, pre17$IDENTIFY %in% a3) %>% arrange(IDENTIFY)
+post17 <- subset(post17, post17$IDENTIFY %in% a4) %>% arrange(IDENTIFY)
+
+sum(is.na(pre17$IDENTIFY)) 
+# double check to make sure that there is no missing-out
+factor(pre17$Q91_1)
+freq1 <- table(pre17$Q91_1)
+mean1 <- mean(pre17$Q91_1) #5.04
+med1 <- median(pre17$Q91_1) # testing with median to see how it results in = 5
+
+sum(is.na(post17$Q1)) # there exists NA value
+which(is.na(post17$Q1)) # row 24
+mean2 <- mean(post17$Q1, na.rm = TRUE) # ignoring NA to 0, than 5.682
+# post17$Q1[is.na(post17$Q1)] = mean2, there is nodifference strippting off and changing to mean
+# med2 <- median(post17$Q1, na.rm = TRUE) # 6
+factor(post17$Q1) # No huge difference between 0 and mean value for NA
+freq2 <- table(post17$Q1)
+# After data cleanse, even though normality does not follow, mean of 2 groups follow CLT
+par(mfrow=c(1,2))
+barplot(freq1, main = "Pre17 Q1 barplot",
+        xlab = "Scale", ylab = "Frequency")
+barplot(freq2, main = "Post 17 Q1 barplot",
+        xlab =  "Scale", ylab = "Frequency")
+dev.off()
+boxplot(pre17$Q91_1, post17$Q1, main= "Mean pre17 vs. post17",
+        xlab =  "Distribution", ylab = "Scale")
+
+# Overall impact of the Program
+pre17_sum <- colSums(pre17[3:14])
+post17_sum <- colSums(post17[3:14], na.rm = TRUE)
+stack_pre17 <- stack(pre17[,3:14])
+stack_post17 <- stack(post17[,3:14])
+hist(stack_pre17$values, main = "The Distribution of Pre 17",
+     xlab = "Scale 1-7", ylab = "Number of answers")
+hist(stack_post17$values, main = "The Distribution of Pre 17",
+     xlab = "Scale 1-7", ylab = "Number of answers")
+t.test(pre17_sum, post17_sum, paired = TRUE) # p < .001
+wilcox.test(pre17_sum, post17_sum, paired = TRUE, exact = FALSE) # .003
+
+# Running paired t-test if there is any significance
+result1 <- t.test(pre17$Q91_1, post17$Q1, paired = TRUE) 
+# .065 but it seems like it has a significance
+
+# Let's check normality
+d1 <- with(pre17,Q91_1) 
+qqPlot(d1) # qqplot, does not hold normaility
+shapiro.test(d1) # p-value is too small, it does not follow normaility
+d2 <- with(post17,Q1)
+qqPlot(d2) # qqplot does not hold normaility either
+shapiro.test(d2) # this one either  
+# seems like if does not follow normaility, let's try Non-parametric
+# test to see how much it is different from the parametric paired t-test
+wilcox.test(pre17$Q91_1,post17$Q1, paired = TRUE, exact = FALSE) # .084
+
+```
+
+## Results Ovreall Questions
+```{r,echo=TRUE}
+result2 <- t.test(pre17$Q91_2, post17$Q2, paired = TRUE) # .074
+wilcox.test(pre17$Q91_2,post17$Q2, paired = TRUE, exact = FALSE) # .078
+
+result3 <- t.test(pre17$Q91_3, post17$Q3, paired = TRUE) # .146
+wilcox.test(pre17$Q91_3,post17$Q3, paired = TRUE, exact = FALSE) # .148
+
+result4 <- t.test(pre17$Q91_4, post17$Q4, paired = TRUE) # .367
+wilcox.test(pre17$Q91_4,post17$Q4, paired = TRUE, exact = FALSE) # .447
+
+result5 <- t.test(pre17$Q91_5, post17$Q5, paired = TRUE) # .049!!
+wilcox.test(pre17$Q91_5,post17$Q5, paired = TRUE, exact = FALSE) # .061!!
+
+result6 <- t.test(pre17$Q91_6, post17$Q6, paired = TRUE) # .263
+wilcox.test(pre17$Q91_6,post17$Q6, paired = TRUE, exact = FALSE) # .195
+
+result7 <- t.test(pre17$Q91_7, post17$Q7, paired = TRUE) # .465
+wilcox.test(pre17$Q91_7,post17$Q7, paired = TRUE, exact = FALSE) # .313
+
+result8 <- t.test(pre17$Q91_8, post17$Q8, paired = TRUE) # .748
+wilcox.test(pre17$Q91_8,post17$Q8, paired = TRUE, exact = FALSE) # .664
+
+result9 <- t.test(pre17$Q91_9, post17$Q9, paired = TRUE) # .047!!
+wilcox.test(pre17$Q91_9,post17$Q9, paired = TRUE, exact = FALSE) # .037!!
+
+result10 <- t.test(pre17$Q91_10, post17$Q10, paired = TRUE) # .056!!
+wilcox.test(pre17$Q91_10,post17$Q10, paired = TRUE, exact = FALSE) # .056!!
+
+result11 <- t.test(pre17$Q91_11, post17$Q11, paired = TRUE) # .008!!
+wilcox.test(pre17$Q91_11,post17$Q11, paired = TRUE, exact = FALSE) # .008!!
+
+result12 <- t.test(pre17$Q91_12, post17$Q12, paired = TRUE) # .058!!
+wilcox.test(pre17$Q91_12,post17$Q12, paired = TRUE, exact = FALSE) # .035!!
+
+```
+If we have more samples, there might be some questions that we were able to reject the null
+
+## Multinomial Categorical Analysis
+# Demographics: Gender
+```{r,echo=TRUE}
+# Gender t-test
+gender1 <- with(pre17,table(Q91_1,Gender))
+colnames(gender1) <- c("Female","Male","Other")
+gender2 <- with(post17,table(Q1, Gender))
+colnames(gender2) <- c("Female","Male","Other")
+
+pre17.female <- filter(pre17,pre17$Gender == 1) %>% arrange(IDENTIFY) # 19
+post17.female <- filter(post17,post17$Gender == 1) %>% arrange(IDENTIFY) # 20, sample sizes do not mach each other
+pre17.female$IDENTIFY %in% post17.female$IDENTIFY
+post17.female$IDENTIFY %in% pre17.female$IDENTIFY 
+# ID number "200066" does not exist in pre17 IDENTIFY
+row.to.keep <- post17.female$IDENTIFY[post17.female$IDENTIFY != 200066]
+post17.female <- filter(post17.female, post17.female$IDENTIFY %in% row.to.keep) # N=19
+
+par(mfrow=c(1,2))
+t1 <- table(pre17.female$Q91_1); t2 <- table(post17.female$Q1)
+barplot(t1, main ="Female pre17"); barplot(t2, main= "Female post17")
+t.test(pre17.female$Q91_1, post17.female$Q1, paired = TRUE) # sample size is small. p= .8
+wilcox.test(pre17.female$Q91_1, post17.female$Q1, paired = TRUE, exact = FALSE) # .79
+
+pre17.male <- filter(pre17,pre17$Gender == 2) %>% arrange(IDENTIFY) # n = 19
+post17.male <- filter(post17,post17$Gender == 2) %>% arrange(IDENTIFY) # n = 19
+
+row.to.keep2 <- pre17.male$IDENTIFY[pre17.male$IDENTIFY %in% post17.male$IDENTIFY]
+row.to.keep3 <- post17.male$IDENTIFY[post17.male$IDENTIFY %in% pre17.male$IDENTIFY]
+
+t3 <- table(pre17.male$Q91_1); t4 <- table(post17.male$Q1)
+barplot(t3, main ="Male pre17"); barplot(t4, main= "Male post17")
+pre17.male <- filter(pre17.male, IDENTIFY %in% row.to.keep2) # 19
+post17.male <- filter(post17.male, IDENTIFY %in% row.to.keep3) # 19
+t.test(pre17.male$Q91_1, post17.male$Q1, paired = TRUE) #0.01
+wilcox.test(pre17.male$Q91_1, post17.male$Q1, paired = TRUE, exact = FALSE) # 0.019
+
+```
+
+# Gender Results
+```{r}
+# exact match IDs
+wilcox.test(pre17.female$Q91_2, post17.female$Q2, paired = TRUE, exact = FALSE) # .93
+wilcox.test(pre17.female$Q91_3, post17.female$Q3, paired = TRUE, exact = FALSE) # .82
+wilcox.test(pre17.female$Q91_4, post17.female$Q4, paired = TRUE, exact = FALSE) # .60
+wilcox.test(pre17.female$Q91_5, post17.female$Q5, paired = TRUE, exact = FALSE) # .84
+wilcox.test(pre17.female$Q91_6, post17.female$Q6, paired = TRUE, exact = FALSE) # .89
+wilcox.test(pre17.female$Q91_7, post17.female$Q7, paired = TRUE, exact = FALSE) # .70
+wilcox.test(pre17.female$Q91_8, post17.female$Q8, paired = TRUE, exact = FALSE) # .25
+wilcox.test(pre17.female$Q91_9, post17.female$Q9, paired = TRUE, exact = FALSE) # 1
+wilcox.test(pre17.female$Q91_10, post17.female$Q10, paired = TRUE, exact = FALSE) # 1
+wilcox.test(pre17.female$Q91_11, post17.female$Q11, paired = TRUE, exact = FALSE) # .4
+wilcox.test(pre17.female$Q91_12, post17.female$Q12, paired = TRUE, exact = FALSE) # .44
+
+wilcox.test(pre17.male$Q91_2, post17.male$Q2, paired = TRUE, exact = FALSE) # 0.02
+wilcox.test(pre17.male$Q91_3, post17.male$Q3, paired = TRUE, exact = FALSE) # 0.18
+wilcox.test(pre17.male$Q91_4, post17.male$Q4, paired = TRUE, exact = FALSE) # 0.94
+wilcox.test(pre17.male$Q91_5, post17.male$Q5, paired = TRUE, exact = FALSE) # 0.08
+wilcox.test(pre17.male$Q91_6, post17.male$Q6, paired = TRUE, exact = FALSE) # 0.60
+wilcox.test(pre17.male$Q91_7, post17.male$Q7, paired = TRUE, exact = FALSE) # 0.74
+wilcox.test(pre17.male$Q91_8, post17.male$Q8, paired = TRUE, exact = FALSE) # 0.18
+wilcox.test(pre17.male$Q91_9, post17.male$Q9, paired = TRUE, exact = FALSE) # 0.06
+wilcox.test(pre17.male$Q91_10, post17.male$Q10, paired = TRUE, exact = FALSE) # 0.14
+wilcox.test(pre17.male$Q91_11, post17.male$Q11, paired = TRUE, exact = FALSE) # 0.07
+wilcox.test(pre17.male$Q91_12, post17.male$Q11, paired = TRUE, exact = FALSE) # 0.02
+
+```
+
+# Demographics: Race
+```{r, echo=TRUE}
+# Categorical analysis: Race
+race1 <- with(pre17,table(Race,Q91_1))
+rownames(race1) <- c("Natives","Black","Hispanic","White","Mixed"); rowSums(race1)
+# too small samples to do the t-test
+race2 <- with(post17,table(Race, Q1))
+rownames(race2) <- c("Black","Hispanic","White","Mixed"); rowSums(race2)
+
+# Testing if pre matches with post in terms of ethnicity 
+pre17_black <- subset(pre17, pre17$Race == 3)
+post17_black <- subset(post17, post17$Race == 3)
+black_match1 <- subset(pre17$IDENTIFY, pre17$Race == 3) %in% 
+    subset(post17$IDENTIFY, post17$Race == 3)
+black_match2 <- subset(post17$IDENTIFY, post17$Race == 3) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 3)
+black_match1 <- pre17_black[black_match1 %in% TRUE,]
+black_match2 <- post17_black[black_match2 %in% TRUE, ]
+
+pre17_hispanic <- subset(pre17, pre17$Race == 5)
+post17_hispanic <- subset(post17, post17$Race == 5)
+hispanic_match1 <- subset(pre17$IDENTIFY, pre17$Race == 5) %in% 
+    subset(post17$IDENTIFY, post17$Race == 5)
+hispanic_match2 <- subset(post17$IDENTIFY, post17$Race == 5) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 5)
+hispanic_match1 <- pre17_hispanic[hispanic_match1 %in% TRUE,]
+hispanic_match2 <- post17_hispanic[hispanic_match2 %in% TRUE, ]
+
+pre17_white <- subset(pre17, pre17$Race == 6)
+post17_white <- subset(post17, post17$Race == 6)
+white_match1 <- subset(pre17$IDENTIFY, pre17$Race == 6) %in%
+    subset(post17$IDENTIFY, post17$Race == 6)
+white_match2 <- subset(post17$IDENTIFY, post17$Race == 6) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 6)
+white_match1 <- pre17_white[white_match1 %in% TRUE,]
+white_match2 <- post17_white[white_match2 %in% TRUE, ]
+
+pre17_mixed <- subset(pre17, pre17$Race == 7)
+post17_mixed <- subset(post17, post17$Race == 7)
+mixed_match1 <- subset(pre17$IDENTIFY, pre17$Race == 7) %in%
+    subset(post17$IDENTIFY, post17$Race == 7)
+mixed_match2 <- subset(post17$IDENTIFY, post17$Race == 7) %in%
+    subset(post17$IDENTIFY, post17$Race == 7)
+mixed_match1 <- pre17_mixed[mixed_match1 %in% TRUE,]
+mixed_match2 <- post17_mixed[mixed_match2 %in% TRUE, ]
+
+```
+
+# Race Results
+```{r, echo=TRUE}
+# I did not conduct with Natives, since they were missing in post17 data
+# Depending on which mean we measure such as mean from row or mean from column,
+# interpretation differs
+
+wilcox.test(black_match1$Q91_1, black_match2$Q1, paired = TRUE, exact = FALSE) # .92
+# doing repetition for every question for each ethnicity is redundant
+
+# 1 Looking at change of one individual effect
+black_mean_pre17 <- with(black_match1, rowSums(black_match1[,3:14]))
+mean(black_mean_pre17) # 64.4
+black_mean_post17 <- with(black_match2, rowSums(black_match2[,3:14]))
+mean(black_mean_post17, na.rm = TRUE) # 65.25
+wilcox.test(black_mean_pre17, black_mean_post17, paired = TRUE, exact = FALSE) # .67
+
+# 2 Looking at the change of question behavior
+black_mean_pre17 <- with(black_match1, colSums(black_match1[,3:14]))
+mean(black_mean_pre17) # 49.1
+black_mean_post17 <- with(black_match2, colSums(black_match2[,3:14]))
+mean(black_mean_post17, na.rm = TRUE) # 47.55
+t.test(black_mean_pre17, black_mean_post17, paired = TRUE) # .49
+wilcox.test(black_mean_pre17, black_mean_post17, paired = TRUE, exact = FALSE) # .47
+
+hispanic_mean_pre17 <- with(hispanic_match1, colSums(hispanic_match1[,3:14]))
+mean(hispanic_mean_pre17) # 29.67
+hispanic_mean_post17 <- with(hispanic_match2, colSums(hispanic_match2[,3:14]))
+mean(hispanic_mean_post17) # 35.75
+t.test(hispanic_mean_pre17, hispanic_mean_post17, paired = TRUE) # .000008
+wilcox.test(hispanic_mean_pre17, hispanic_mean_post17, paired = TRUE, exact = FALSE) # .002!
+
+white_mean_pre17 <- with(white_match1, colSums(white_match1[,3:14]))
+mean(white_mean_pre17) # 47.83
+white_mean_post17 <- with(white_match2, colSums(white_match2[,3:14]))
+mean(white_mean_post17, na.rm = TRUE) # 50.5
+wilcox.test(white_mean_pre17, white_mean_post17, paired = TRUE, exact = FALSE) # .05
+
+mixed_mean_pre17 <- with(mixed_match1, colSums(mixed_match1[,3:14]))
+mean(mixed_mean_pre17) # 60.58
+mixed_mean_post17 <- with(mixed_match2, colSums(mixed_match2[,3:14]))
+mean(mixed_mean_post17, na.rm = TRUE) # 71.75
+wilcox.test(mixed_mean_pre17, mixed_mean_post17, paired = TRUE, exact = FALSE) # .002
+
+```
+
+# Demogrpahics: Age
+```{r, echo=TRUE}
+# To check whethere there is any missing out
+which(is.na(pre17$Age)); which(is.na(pre17$Grade)); 
+which(is.na(post17$Age)); which(is.na(post17$Grade))
+
+# I choose by age, but inconsistent
+pre_age <- with(pre17, table(Age))
+post_age <- with(post17, table(Age))
+par(mfrow = c(1,2))
+hist(pre17$Age); hist(post17$Age)
+
+# I did it by grade
+pre_grade <- with(pre17, table(Grade))
+post_grade <- with(post17, table(Grade))
+hist(pre17$Grade); hist(post17$Grade)
+
+### And then?
+
+```
+
+# Demographicss: Place
+```{r echo=TRUE}
+starbuck_pre17 <- grepl("starbuck|Starbuck", pre17$Place)
+dr.jones_pre17 <- grepl("jones|Jones", pre17$Place)
+highland_pre17 <- grepl("highland|Highland", pre17$Place)
+longfellow_pre17 <- grepl("longfellow|Longfellow|LONGFELLOW",
+                   pre17$Place)
+
+starbuck_post17 <- grepl("starbuck|Starbuck", post17$Place)
+dr.jones_post17 <- grepl("jones|Jones", post17$Place)
+highland_post17 <- grepl("highland|Highland", post17$Place)
+longfellow_post17 <- grepl("longfellow|Longfellow|LONGFELLOW",
+                   post17$Place)
+
+starbuck1 <- wilcox.test(subset(pre17$Q91_1, starbuck_pre17 == TRUE),
+            subset(post17$Q1, starbuck_post17 == TRUE),
+            paired = FALSE, exact = FALSE) # .79
+dr.jones1 <- wilcox.test(subset(pre17$Q91_1, dr.jones_pre17 == TRUE),
+            subset(post17$Q1, dr.jones_post17 == TRUE),
+            paired = FALSE, exact = FALSE) # .01
+highland1 <- wilcox.test(subset(pre17$Q91_1, highland_pre17 == TRUE),
+            subset(post17$Q1, highland_post17 == TRUE),
+            paired = FALSE, exact = FALSE) # .32
+longfellow <- wilcox.test(subset(pre17$Q91_1, longfellow_pre17 == TRUE),
+            subset(post17$Q1, longfellow_post17 == TRUE),
+            paired = FALSE, exact = FALSE) # .16
+
+```
+
+# Chi-squared & Additional Analysis
+```{r, echo=TRUE}
+race1; race2
+# Chi-squared test to find the association between variables
+# Merge data on scale 1-5 & 6-7, too small smaple to do even the chi-quared
+counts <- array(data=c(9,10,15,6),dim = c(2,2), # pre17 survery data
+                dimnames = list(Scale =c("1-5","6-7"),Gender=c("Female","Male")))
+chi <- chisq.test(counts) 
+# 0.26, no statistical evidence that girl would pick high scale on pre survey
+ 
+counts2 <- array(data = c(7,13,9,12),dim = c(2,2), # post17 survey data
+                 dimnames = list(Scale=c("1-5","6-7"),Gender=c("Female","Male")))
+chi2 <- chisq.test(counts2)
+
+pre17 <- read_xlsx("C:/Users/Ji Hoon/Desktop/Data Analysis/2017/WI pre NMP7raw_cleansed.xlsx")
+post17 <- read_xlsx("C:/Users/Ji Hoon/Desktop/Data Analysis/2017/Wisconsin_FinalRaw NMP7_cleansed.xlsx")
+with(pre17,table(Q91_1,Gender))
+count.if <- array(data = c(5,25,13,19),dim = c(2,2), #pre17 survey without filter
+                  dimnames = list(Scale=c("1,4","5-7"),Gender=c("Female","Male")))
+chi.if <- chisq.test(count.if)
+# 0.07233!
+
+with(post17,table(Q1, Gender))
+count.if2 <- array(data = c(4,18,1,28),dim = c(2,2), #pre17 survey without filter
+                  dimnames = list(Scale=c("1,4","5-7"),Gender=c("Female","Male")))
+chi.if2 <- chisq.test(count.if2)
+
+# Multinomial logistic regression
+pre17 <- pre17 %>% 
+    mutate(Q91_1 = as.factor(Q91_1),
+           Age = as.factor(Age),
+           Gender = as.factor(Gender),
+           Race = as.factor(Race))
+multinomModel <- multinom(Q91_1~Age+Gender+Race,data = pre17)
+
+```
