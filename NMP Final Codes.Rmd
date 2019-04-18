@@ -1,0 +1,1180 @@
+---
+title: "4-H National Mentoring Program Report"
+author: "JIHOON WOO"
+date: "2019 April 16th"
+output: pdf_document
+---
+
+# Data Analysis
+```{r, echo=FALSE, include=FALSE}
+# Library and packages are required
+if (!require("ggplot2")){
+    install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+    require("ggplot2")
+}
+if (!require("dplyr")){
+    install.packages("dplyr")
+    require("dplyr")
+}
+if (!require("car")){
+    install.packages("car")
+    require("car")
+}
+if (!require("readxl")){
+    install.packages("readxl")
+    require("readxl")
+}
+if (!require("nnet")){
+    install.packages("nnet")
+    require("nnet")
+}
+if (!require("gridExtra")){
+    install.packages("gridExtra")
+    require("gridExtra")
+}
+
+```
+
+## Year 2017 Analysis
+### Overall Result
+```{r,echo=FALSE, include=FALSE}
+pre17 <- read_xlsx("C:/Users/Ji Hoon/Desktop/Data Analysis/2017/WI pre NMP7raw_cleansed.xlsx")
+post17 <- read_xlsx("C:/Users/Ji Hoon/Desktop/Data Analysis/2017/Wisconsin_FinalRaw NMP7_cleansed.xlsx")
+
+pre17 <- pre17[,-c(1:2)] %>% filter(pre17$IDENTIFY != "#N/A")
+# removing vlookup columns & N=53 matched sample size
+post17 <- post17[-c(1:2)] %>% filter(post17$IDENTIFY != "#N/A") 
+# matching paired sample!
+a1 <- pre17$IDENTIFY %in% post17$IDENTIFY # 50
+a2 <- post17$IDENTIFY %in% pre17$IDENTIFY # 50 
+a3 <- with(pre17, IDENTIFY[a1 %in% TRUE])
+a4 <- with(post17, IDENTIFY[a2 %in% TRUE])
+a3 <- a3[a3!= 147144 & a3!= 136861] 
+a4 <- a4[a4!= 147144 & a4!= 136861] # finally we have 45 paired data
+pre17 <- subset(pre17, pre17$IDENTIFY %in% a3) %>% arrange(IDENTIFY)
+post17 <- subset(post17, post17$IDENTIFY %in% a4) %>% arrange(IDENTIFY)
+
+# double check to make sure that there is no missing-out
+freq1 <- factor(pre17$Q91_1)
+freq1 <- table(pre17$Q91_1)
+mean1 <- mean(pre17$Q91_1) #5.04
+med1 <- median(pre17$Q91_1) # testing with median to see how it results in = 5
+
+mean2 <- mean(post17$Q1, na.rm = TRUE) # ignoring NA to 0, than 5.682
+# post17$Q1[is.na(post17$Q1)] = mean2, there is nodifference strippting off and changing to mean
+# med2 <- median(post17$Q1, na.rm = TRUE) # 6
+freq2 <- factor(post17$Q1) # No huge difference between 0 and mean value for NA
+freq2 <- table(post17$Q1)
+# After data cleanse, even though normality does not follow, mean of 2 groups follow CLT
+
+```
+
+```{r, echo=FALSE}
+# Overall impact of the Program
+pre17_sum <- with(pre17, colSums(pre17[3:14]))
+post17_sum <- with(post17, colSums(post17[3:14], na.rm = TRUE))
+stack_pre17 <- stack(pre17[,3:14]) # 5.2
+stack_post17 <- stack(post17[,3:14]) # 5.6
+summary(stack_pre17)
+summary(stack_post17)
+g1 <- ggplot(stack_pre17, aes(stack_pre17$values, fill=stack_pre17$ind)) +
+    geom_histogram(bins = 25) + labs(fill = "Questions 1-12") +
+    ggtitle("Overall Distribution of Pre 17") + ylab("Number of Frequency") +
+    xlab("Scale 1-7") + ylim(0,200)
+g2 <- ggplot(stack_post17, aes(stack_post17$values, fill =stack_pre17$ind)) + geom_histogram(bins = 25) + labs(fill = "Questions 1-12") +
+    ggtitle("Overall Distribution of Post 17") + ylab("Number of Frequency") +
+    xlab("Scale 1-7") + ylim(0,200)
+grid.arrange(g1, g2, ncol=2)
+# ggplot(pre17, aes(y = Q91_1))+ geom_boxplot()
+par(mfrow = c(1,2))
+boxplot(pre17$Q91_1, pre17$Q91_2, pre17$Q91_3, pre17$Q91_4, pre17$Q91_5,
+        pre17$Q91_6, pre17$Q91_7, pre17$Q91_8, pre17$Q91_9, pre17$Q91_10,
+        pre17$Q91_11, pre17$Q91_12,
+        main = "Multiple Boxplots for Pre 17 Survey", 
+        names = c("1","2","3","4","5","6","7","8","9","10","11","12"),
+        col = c("magenta","cyan","green","pink","red","orange"), 
+        horizontal = FALSE,
+        ylab = "Scale 1-7", xlab = "Question 1-12")
+boxplot(post17$Q1, post17$Q2, post17$Q3, post17$Q4, post17$Q5,
+        post17$Q6, post17$Q7, post17$Q8, post17$Q9, post17$Q10,
+        post17$Q11, post17$Q12,
+        main = "Multiple Boxplots for Post 17 Survey", 
+        names = c("1","2","3","4","5","6","7","8","9","10","11","12"),
+        col = c("magenta","cyan","green","pink","red","orange"), 
+        horizontal = FALSE,
+        ylab = "Scale 1-7", xlab = "Question 1-12")
+
+overall_result1 <- t.test(pre17_sum, post17_sum, paired = TRUE) # p < .001
+overall_result2 <- wilcox.test(pre17_sum, post17_sum, paired = TRUE, exact = FALSE) # .003
+cat("The p-value for the change of sum of each question from Paired T-test was",
+    round(overall_result1$p.value,3))
+cat("The p-value for the change of sum of each question from Mann-Whitney U Test
+    was", round(overall_result2$p.value,3))
+
+```
+
+### By Each Question
+```{r,echo=FALSE, include=FALSE}
+result1 <- t.test(pre17$Q91_1, post17$Q1, paired = TRUE) # .07
+wilcox.test(pre17$Q91_1,post17$Q1, paired = TRUE, exact = FALSE) # .084
+
+result2 <- t.test(pre17$Q91_2, post17$Q2, paired = TRUE) # .074
+wilcox.test(pre17$Q91_2,post17$Q2, paired = TRUE, exact = FALSE) # .078
+
+result3 <- t.test(pre17$Q91_3, post17$Q3, paired = TRUE) # .146
+wilcox.test(pre17$Q91_3,post17$Q3, paired = TRUE, exact = FALSE) # .148
+
+result4 <- t.test(pre17$Q91_4, post17$Q4, paired = TRUE) # .367
+wilcox.test(pre17$Q91_4,post17$Q4, paired = TRUE, exact = FALSE) # .447
+
+result5 <- t.test(pre17$Q91_5, post17$Q5, paired = TRUE) # .049!!
+wilcox.test(pre17$Q91_5,post17$Q5, paired = TRUE, exact = FALSE) # .061!!
+
+result6 <- t.test(pre17$Q91_6, post17$Q6, paired = TRUE) # .263
+wilcox.test(pre17$Q91_6,post17$Q6, paired = TRUE, exact = FALSE) # .195
+
+result7 <- t.test(pre17$Q91_7, post17$Q7, paired = TRUE) # .465
+wilcox.test(pre17$Q91_7,post17$Q7, paired = TRUE, exact = FALSE) # .313
+
+result8 <- t.test(pre17$Q91_8, post17$Q8, paired = TRUE) # .748
+wilcox.test(pre17$Q91_8,post17$Q8, paired = TRUE, exact = FALSE) # .664
+
+result9 <- t.test(pre17$Q91_9, post17$Q9, paired = TRUE) # .047!!
+wilcox.test(pre17$Q91_9,post17$Q9, paired = TRUE, exact = FALSE) # .037!!
+
+result10 <- t.test(pre17$Q91_10, post17$Q10, paired = TRUE) # .056!!
+wilcox.test(pre17$Q91_10,post17$Q10, paired = TRUE, exact = FALSE) # .056!!
+
+result11 <- t.test(pre17$Q91_11, post17$Q11, paired = TRUE) # .008!!
+wilcox.test(pre17$Q91_11,post17$Q11, paired = TRUE, exact = FALSE) # .008!!
+
+result12 <- t.test(pre17$Q91_12, post17$Q12, paired = TRUE) # .058!!
+wilcox.test(pre17$Q91_12,post17$Q12, paired = TRUE, exact = FALSE) # .035!!
+
+```
+
+### Gender Analysis
+```{r, echo=FALSE, include=FALSE}
+par(mfrow=c(1,2))
+pre17_gender <- table(pre17$Gender)
+names(pre17_gender) <- c("Female", "Male", "Other")
+pre17_gender_barplot <- barplot(pre17_gender, main = "Pre 17 Distribution of Gender", 
+                        xlab = "Gender", ylab = "Number of Frequency",
+                        col = c("cyan","orange","magenta"), ylim = c(0,25))
+text(x = c("19", "21", "4"), y = c("19", "21", "4"), pos = 3, col = "red")
+post17_gender <- table(post17$Gender)
+names(post17_gender) <- c("Female", "Male", "Other")
+post17_gender_barplot <- barplot(post17_gender, main = "Post 17 Distribution of Gender",
+                         xlab = "Gender", ylab = "Number of Frequency",
+                         col = c("cyan","orange","magenta"), ylim = c(0,25))
+text(x = c("20", "21", "3"), y = c("20", "21", "3"), pos = 3, col = "red")
+
+# FEMALE ONLY
+pre17.female <- filter(pre17,pre17$Gender == 1) %>% arrange(IDENTIFY) 
+# n = 19
+post17.female <- filter(post17,post17$Gender == 1) %>% arrange(IDENTIFY) 
+# n = 20, sample sizes do not mach each other
+pre17.female$IDENTIFY %in% post17.female$IDENTIFY
+post17.female$IDENTIFY %in% pre17.female$IDENTIFY 
+# ID number "200066" does not exist in pre17 IDENTIFY
+row.to.keep <- post17.female$IDENTIFY[post17.female$IDENTIFY != 200066]
+post17.female <- filter(post17.female, post17.female$IDENTIFY %in% row.to.keep) 
+identical(pre17.female$IDENTIFY, post17.female$IDENTIFY)
+# N=19, pre and post are in pair now
+
+# MALE ONLY
+pre17.male <- filter(pre17,pre17$Gender == 2) %>% arrange(IDENTIFY) # n = 19
+post17.male <- filter(post17,post17$Gender == 2) %>% arrange(IDENTIFY) # n = 19
+row.to.keep2 <- pre17.male$IDENTIFY[pre17.male$IDENTIFY %in% post17.male$IDENTIFY]
+row.to.keep3 <- post17.male$IDENTIFY[post17.male$IDENTIFY %in% pre17.male$IDENTIFY]
+pre17.male <- filter(pre17.male, IDENTIFY %in% row.to.keep2) # 19
+post17.male <- filter(post17.male, IDENTIFY %in% row.to.keep3) # 19
+
+wilcox.test(pre17.male$Q91_1, post17.male$Q1, paired = TRUE, exact = FALSE) # 0.019!
+wilcox.test(pre17.male$Q91_2, post17.male$Q2, paired = TRUE, exact = FALSE) # 0.02!
+wilcox.test(pre17.male$Q91_3, post17.male$Q3, paired = TRUE, exact = FALSE) # 0.18
+wilcox.test(pre17.male$Q91_4, post17.male$Q4, paired = TRUE, exact = FALSE) # 0.94
+wilcox.test(pre17.male$Q91_5, post17.male$Q5, paired = TRUE, exact = FALSE) # 0.08!
+wilcox.test(pre17.male$Q91_6, post17.male$Q6, paired = TRUE, exact = FALSE) # 0.60
+wilcox.test(pre17.male$Q91_7, post17.male$Q7, paired = TRUE, exact = FALSE) # 0.74
+wilcox.test(pre17.male$Q91_8, post17.male$Q8, paired = TRUE, exact = FALSE) # 0.18
+wilcox.test(pre17.male$Q91_9, post17.male$Q9, paired = TRUE, exact = FALSE) # 0.06!
+wilcox.test(pre17.male$Q91_10, post17.male$Q10, paired = TRUE, exact = FALSE) # 0.14
+wilcox.test(pre17.male$Q91_11, post17.male$Q11, paired = TRUE, exact = FALSE) # 0.07!
+wilcox.test(pre17.male$Q91_12, post17.male$Q11, paired = TRUE, exact = FALSE) # 0.02! 
+    
+# STACK
+par(mfrow= c(1,2))
+pre17.female.stack <- stack(pre17.female[,3:14])
+post17.female.stack <- stack(post17.female[,3:14])
+summary(pre17.female.stack$values); summary(post17.female.stack$values)
+boxplot(post17.female.stack$values, pre17.female.stack$values,  
+        horizontal = TRUE, main = "Female Pre 17 vs. Post 17",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+pre17.male.stack <- stack(pre17.male[,3:14])
+post17.male.stack <- stack(post17.male[,3:14])
+summary(pre17.male.stack$values); summary(post17.male.stack$values)
+boxplot(post17.male.stack$values, pre17.male.stack$values,  
+        horizontal = TRUE, main = "Male Pre 17 vs. Post 17",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+
+par(mfrow = c(1,2))
+boxplot(pre17.male$Q91_1, pre17.male$Q91_2, pre17.male$Q91_3, pre17.male$Q91_4,
+        pre17.male$Q91_5, pre17.male$Q91_6, pre17.male$Q91_7, pre17.male$Q91_8, 
+        pre17.male$Q91_9, pre17.male$Q91_10, pre17.male$Q91_11, pre17.male$Q91_12,
+        main = "Multiple Boxplots for Pre17 Male", 
+        names = c("1","2","3","4","5","6","7","8","9","10","11","12"),
+        col = c("magenta","cyan","green","pink","red","orange"), 
+        horizontal = FALSE,
+        ylab = "Scale 1-7", xlab = "Question 1-12")
+boxplot(post17.male$Q1, post17.male$Q2, post17.male$Q3, post17.male$Q4, 
+        post17.male$Q5, post17.male$Q6, post17.male$Q7, post17.male$Q8, 
+        post17.male$Q9, post17.male$Q10, post17.male$Q11, post17.male$Q12,
+        main = "Multiple Boxplots for Post 17 Male", 
+        names = c("1","2","3","4","5","6","7","8","9","10","11","12"),
+        col = c("magenta","cyan","green","pink","red","orange"), 
+        horizontal = FALSE,
+        ylab = "Scale 1-7", xlab = "Question 1-12")
+
+# Q1, n = 19
+pre17.female$Q91_1
+female_q1_pre17 <- round(length(grep("5|6|7", pre17.female$Q91_1)) /
+                             length(pre17.female$Q91_1) * 100, 2)
+female_q1_answer <- cat(female_q1_pre17,"%") # 78.95%
+
+post17.female$Q1
+female_q1_post17 <- round(length(grep("5|6|7", post17.female$Q1)) /
+                              length(post17.female$Q1) * 100, 2)
+female_q1_answer <- cat(female_q1_post17,"%") # 78.95%
+
+pre17.male$Q91_1
+male_q1_pre17 <- round(length(grep("5|6|7", pre17.male$Q91_1)) /
+                             length(pre17.male$Q91_1) * 100, 2)
+male_q1_answer <- cat(male_q1_pre17,"%") # 57.89%
+
+post17.male$Q1
+male_q1_post17 <- round(length(grep("5|6|7", post17.male$Q1)) /
+                              length(post17.male$Q1) * 100, 2)
+male_q1_answer <- cat(male_q1_post17,"%") # 94.74%
+
+q1_gender <- c(male_q1_post17, male_q1_pre17, female_q1_post17, female_q1_pre17)
+names(q1_gender) <- c("Post Male", "Pre Male",
+                      "Post Female", "Pre Female")
+q1_gender_plot <- barplot(q1_gender,
+                     main = "Q1 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE, axisnames = FALSE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","green","magenta","yellow"))
+text(x=q1_gender_plot, y =c("94.74%","57.89%", "78.95%", "78.95%"), col = "black", pos = 4)
+
+# Q2
+pre17.female$Q91_2
+female_q2_pre17 <- round(length(grep("5|6|7", pre17.female$Q91_2)) /
+                             length(pre17.female$Q91_2) * 100, 2)
+female_q2_answer <- cat(female_q2_pre17,"%") # 84.21%
+
+post17.female$Q2
+female_q2_post17 <- round(length(grep("5|6|7", post17.female$Q2)) /
+                              length(post17.female$Q1) * 100, 2)
+female_q2_answer <- cat(female_q2_post17,"%") # 78.95%
+
+pre17.male$Q91_2
+male_q2_pre17 <- round(length(grep("5|6|7", pre17.male$Q91_2)) /
+                             length(pre17.male$Q91_2) * 100, 2)
+male_q2_answer <- cat(male_q2_pre17,"%") # 52.63%
+
+post17.male$Q2
+male_q2_post17 <- round(length(grep("5|6|7", post17.male$Q2)) /
+                              length(post17.male$Q2) * 100, 2)
+male_q2_answer <- cat(male_q2_post17,"%") # 89.47%
+
+q2_gender <- c(male_q2_post17, male_q2_pre17, female_q2_post17, female_q2_pre17)
+names(q2_gender) <- c("Post Male", "Pre Male",
+                      "Post Female", "Pre Female")
+q2_gender_plot <- barplot(q2_gender,
+                     main = "Q2 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q1_gender_plot, y =c("89.47%","52.63%", "78.95%", "84.21%"), col = "black", pos = 4)
+
+# Q5
+pre17.female$Q91_5
+female_q5_pre17 <- round(length(grep("5|6|7", pre17.female$Q91_5)) /
+                             length(pre17.female$Q91_5) * 100, 2)
+female_q5_answer <- cat(female_q5_pre17,"%") # 73.68%
+
+post17.female$Q5
+female_q5_post17 <- round(length(grep("5|6|7", post17.female$Q5)) /
+                              length(post17.female$Q5) * 100, 2)
+female_q5_answer <- cat(female_q5_post17,"%") # 84.21%
+
+pre17.male$Q91_5
+male_q5_pre17 <- round(length(grep("5|6|7", pre17.male$Q91_5)) /
+                             length(pre17.male$Q91_5) * 100, 2)
+male_q5_answer <- cat(male_q5_pre17,"%") # 68.42%
+
+post17.male$Q5
+male_q5_post17 <- round(length(grep("5|6|7", post17.male$Q5)) /
+                              length(post17.male$Q5) * 100, 2)
+male_q5_answer <- cat(male_q5_post17,"%") # 84.21%
+
+q5_gender <- c(male_q5_post17, male_q5_pre17, female_q5_post17, female_q5_pre17)
+names(q5_gender) <- c("Post Male", "Pre Male",
+                      "Post Female", "Pre Female")
+q5_gender_plot <- barplot(q5_gender,
+                     main = "Q5 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q5_gender_plot, y =c("84.21%","68.42%", "84.21%", "73.68%"), col = "black", pos = 4)
+
+
+# Q9
+pre17.female$Q91_9
+female_q9_pre17 <- round(length(grep("5|6|7", pre17.female$Q91_9)) /
+                             length(pre17.female$Q91_9) * 100, 2)
+female_q9_answer <- cat(female_q9_pre17,"%") # 78.95%
+
+post17.female$Q9
+female_q9_post17 <- round(length(grep("5|6|7", post17.female$Q9)) /
+                              length(post17.female$Q9) * 100, 2)
+female_q9_answer <- cat(female_q9_post17,"%") # 78.95%
+
+pre17.male$Q91_9
+male_q9_pre17 <- round(length(grep("5|6|7", pre17.male$Q91_9)) /
+                             length(pre17.male$Q91_9) * 100, 2)
+male_q9_answer <- cat(male_q9_pre17,"%") # 47.37%
+
+post17.male$Q9
+male_q9_post17 <- round(length(grep("5|6|7", post17.male$Q9)) /
+                              length(post17.male$Q9) * 100, 2)
+male_q9_answer <- cat(male_q9_post17,"%") # 78.95%
+
+q9_gender <- c(male_q9_post17, male_q9_pre17, female_q9_post17, female_q9_pre17)
+names(q9_gender) <- c("Post Male", "Pre Male",
+                      "Post Female", "Pre Female")
+q9_gender_plot <- barplot(q9_gender,
+                     main = "Q9 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q9_gender_plot, y =c("78.95%","47.37%", "78.95%", "78.95%"), col = "black", pos = 4)
+
+# Q11
+pre17.female$Q91_11
+female_q11_pre17 <- round(length(grep("5|6|7", pre17.female$Q91_11)) /
+                             length(pre17.female$Q91_11) * 100, 2)
+female_q11_answer <- cat(female_q11_pre17,"%") # 73.68%
+
+post17.female$Q11
+female_q11_post17 <- round(length(grep("5|6|7", post17.female$Q11)) /
+                              length(post17.female$Q11) * 100, 2)
+female_q11_answer <- cat(female_q11_post17,"%") # 89.47%
+
+pre17.male$Q91_11
+male_q11_pre17 <- round(length(grep("5|6|7", pre17.male$Q91_11)) /
+                             length(pre17.male$Q91_11) * 100, 2)
+male_q11_answer <- cat(male_q11_pre17,"%") # 68.42%
+
+post17.male$Q11
+male_q11_post17 <- round(length(grep("5|6|7", post17.male$Q11)) /
+                              length(post17.male$Q11) * 100, 2)
+male_q11_answer <- cat(male_q11_post17,"%") # 84.21%
+
+q11_gender <- c(male_q11_post17, male_q11_pre17, female_q11_post17, female_q11_pre17)
+names(q11_gender) <- c("Post Male", "Pre Male",
+                      "Post Female", "Pre Female")
+q11_gender_plot <- barplot(q11_gender,
+                     main = "Q11 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q11_gender_plot, y =c("84.21%","68.42%", "89.47%", "73.68%"), col = "black", pos = 4)
+
+# Q12
+pre17.female$Q91_12
+female_q12_pre17 <- round(length(grep("5|6|7", pre17.female$Q91_12)) /
+                             length(pre17.female$Q91_12) * 100, 2)
+female_q12_answer <- cat(female_q12_pre17,"%") # 73.68%
+
+post17.female$Q12
+female_q12_post17 <- round(length(grep("5|6|7", post17.female$Q12)) /
+                              length(post17.female$Q12) * 100, 2)
+female_q12_answer <- cat(female_q12_post17,"%") # 94.74%
+
+pre17.male$Q91_12
+male_q12_pre17 <- round(length(grep("5|6|7", pre17.male$Q91_12)) /
+                             length(pre17.male$Q91_12) * 100, 2)
+male_q12_answer <- cat(male_q12_pre17,"%") # 47.37%
+
+post17.male$Q12
+male_q12_post17 <- round(length(grep("5|6|7", post17.male$Q12)) /
+                              length(post17.male$Q12) * 100, 2)
+male_q12_answer <- cat(male_q12_post17,"%") # 73.68%
+
+q12_gender <- c(male_q12_post17, male_q12_pre17, female_q12_post17, female_q12_pre17)
+names(q12_gender) <- c("Post Male", "Pre Male",
+                      "Post Female", "Pre Female")
+q12_gender_plot <- barplot(q12_gender,
+                     main = "Q12 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q12_gender_plot, y =c("73.68%","47.37%", "94.74%", "73.68%"), col = "black", pos = 4)
+
+```
+
+
+### Race Analysis
+```{r, echo=FALSE, include= FALSE}
+par(mfrow=c(1,2))
+pre17_race <- table(pre17$Race)
+names(pre17_race) <- c("Native", "Black", "Hispanic", "White", "More than one")
+pre17_race_barplot <- barplot(pre17_race, main = "Pre 17 Distribution of Race", 
+                        xlab = "Race ", ylab = "Number of Frequency",
+                        col = c("cyan","orange","magenta", "yellow", "blue"),
+                        legend.text = TRUE, ylim = c(0,15), cex.names = .7,
+                        args.legend = list(x="bottomright", cex=.7))
+text(x = c("2", "11", "8", "12", "12"), 
+     y = c("2", "11", "8", "12", "12"),
+     pos = 3, col = "red")
+
+post17_race <- table(post17$Race)
+names(post17_race) <- c("Black", "Hispanic", "White", "More than one")
+post17_race_barplot <- barplot(post17_race, main = "Post 17 Distribution of Race", 
+                        xlab = "Race ", ylab = "Number of Frequency",
+                        col = c("orange","magenta", "yellow", "blue"),
+                        legend.text = FALSE, ylim = c(0,15), cex.names = .7,
+                        args.legend = list(x="bottomright", cex = .7))
+text(x = c("11", "8", "13", "13"), 
+     y = c("11", "8", "13", "13"),
+     pos = 3, col = "red")
+
+# Testing if pre matches with post in terms of ethnicity 
+pre17_black <- subset(pre17, pre17$Race == 3)
+post17_black <- subset(post17, post17$Race == 3)
+black_match1 <- subset(pre17$IDENTIFY, pre17$Race == 3) %in% 
+    subset(post17$IDENTIFY, post17$Race == 3)
+black_match2 <- subset(post17$IDENTIFY, post17$Race == 3) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 3)
+black_match1 <- pre17_black[black_match1 %in% TRUE,]
+black_match2 <- post17_black[black_match2 %in% TRUE, ]
+
+pre17_hispanic <- subset(pre17, pre17$Race == 5)
+post17_hispanic <- subset(post17, post17$Race == 5)
+hispanic_match1 <- subset(pre17$IDENTIFY, pre17$Race == 5) %in% 
+    subset(post17$IDENTIFY, post17$Race == 5)
+hispanic_match2 <- subset(post17$IDENTIFY, post17$Race == 5) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 5)
+hispanic_match1 <- pre17_hispanic[hispanic_match1 %in% TRUE,]
+hispanic_match2 <- post17_hispanic[hispanic_match2 %in% TRUE, ]
+
+pre17_white <- subset(pre17, pre17$Race == 6)
+post17_white <- subset(post17, post17$Race == 6)
+white_match1 <- subset(pre17$IDENTIFY, pre17$Race == 6) %in%
+    subset(post17$IDENTIFY, post17$Race == 6)
+white_match2 <- subset(post17$IDENTIFY, post17$Race == 6) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 6)
+white_match1 <- pre17_white[white_match1 %in% TRUE,]
+white_match2 <- post17_white[white_match2 %in% TRUE, ]
+
+pre17_mixed <- subset(pre17, pre17$Race == 7)
+post17_mixed <- subset(post17, post17$Race == 7)
+mixed_match1 <- subset(pre17$IDENTIFY, pre17$Race == 7) %in%
+    subset(post17$IDENTIFY, post17$Race == 7)
+mixed_match2 <- subset(post17$IDENTIFY, post17$Race == 7) %in%
+    subset(pre17$IDENTIFY, pre17$Race == 7)
+mixed_match1 <- pre17_mixed[mixed_match1 %in% TRUE, ]
+mixed_match2 <- post17_mixed[mixed_match2 %in% TRUE, ]
+
+# 2 Looking at the change of question behavior
+black_mean_pre17 <- with(black_match1, colSums(black_match1[,3:14])) # n = 9
+median(black_match2$Q3,na.rm = TRUE) # 6.5
+black_match2[is.na(black_match2)] <- 6
+black_mean_post17 <- with(black_match2, colSums(black_match2[,3:14]))
+summary(black_mean_pre17) # 49.1  
+summary(black_mean_post17, na.rm = TRUE) # 48.25
+t.test(black_mean_pre17, black_mean_post17, paired = TRUE) # .57
+wilcox.test(black_mean_pre17, black_mean_post17, paired = TRUE, exact = FALSE) # .62
+
+hispanic_mean_pre17 <- with(hispanic_match1, colSums(hispanic_match1[,3:14])) # n = 6
+summary(hispanic_mean_pre17) # 29.67
+hispanic_mean_post17 <- with(hispanic_match2, colSums(hispanic_match2[,3:14]))
+summary(hispanic_mean_post17) # 35.75
+t.test(hispanic_mean_pre17, hispanic_mean_post17, paired = TRUE) # .000008
+wilcox.test(hispanic_mean_pre17, hispanic_mean_post17, paired = TRUE, exact = FALSE) # .002!
+
+white_mean_pre17 <- with(white_match1, colSums(white_match1[,3:14])) # n = 9
+summary(white_mean_pre17) # 47.83
+median(white_match2$Q1,na.rm = TRUE); median(white_match2$Q1, na.rm = TRUE) # 5.5
+white_match2[is.na(white_match2)] <- 5
+white_mean_post17 <- with(white_match2, colSums(white_match2[,3:14]))
+summary(white_mean_post17, na.rm = TRUE) # 50.08
+wilcox.test(white_mean_pre17, white_mean_post17, paired = TRUE, exact = FALSE) # .13
+
+mixed_mean_pre17 <- with(mixed_match1, colSums(mixed_match1[,3:14])) # n = 12
+summary(mixed_mean_pre17) # 60.58
+mixed_mean_post17 <- with(mixed_match2, colSums(mixed_match2[,3:14]))
+summary(mixed_mean_post17, na.rm = TRUE) # 71.75
+wilcox.test(mixed_mean_pre17, mixed_mean_post17, paired = TRUE, exact = FALSE) # .002
+
+summary(stack(hispanic_match1[,3:14]))
+summary(stack(hispanic_match2[,3:14]))
+boxplot(stack(hispanic_match2[,3:14])$values,
+        stack(hispanic_match1[,3:14])$values,
+        horizontal = TRUE, main = "Hispanic Scale",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+summary(stack(mixed_match1[,3:14]))
+summary(stack(mixed_match2[,3:14]))
+boxplot(stack(mixed_match2[,3:14])$values,
+        stack(mixed_match1[,3:14])$values,
+        horizontal = TRUE, main = "Mixed Scale",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+hispanic_mixed_pre17 <- rbind(hispanic_match1, mixed_match1) # n =18
+hispanic_mixed_post17 <- rbind(hispanic_match2, mixed_match2) # n =18
+white_black_pre17 <- rbind(white_match1, black_match1) # n = 18
+white_black_post17 <- rbind(white_match2, black_match2) # n = 18
+
+wilcox.test(hispanic_mixed_pre17$Q91_1, hispanic_mixed_post17$Q1,
+            paired = TRUE, exact = FALSE) # 0.14
+wilcox.test(hispanic_mixed_pre17$Q91_2, hispanic_mixed_post17$Q2,
+            paired = TRUE, exact = FALSE) # 0.19
+wilcox.test(hispanic_mixed_pre17$Q91_3, hispanic_mixed_post17$Q3,
+            paired = TRUE, exact = FALSE) # 0.57
+wilcox.test(hispanic_mixed_pre17$Q91_4, hispanic_mixed_post17$Q4,
+            paired = TRUE, exact = FALSE) # 0.20
+wilcox.test(hispanic_mixed_pre17$Q91_5, hispanic_mixed_post17$Q5,
+            paired = TRUE, exact = FALSE) # 0.19
+wilcox.test(hispanic_mixed_pre17$Q91_6, hispanic_mixed_post17$Q6,
+            paired = TRUE, exact = FALSE) # 0.07!
+wilcox.test(hispanic_mixed_pre17$Q91_7, hispanic_mixed_post17$Q7,
+            paired = TRUE, exact = FALSE) # 0.19
+wilcox.test(hispanic_mixed_pre17$Q91_8, hispanic_mixed_post17$Q8,
+            paired = TRUE, exact = FALSE) # 0.34
+wilcox.test(hispanic_mixed_pre17$Q91_9, hispanic_mixed_post17$Q9,
+            paired = TRUE, exact = FALSE) # 0.15
+wilcox.test(hispanic_mixed_pre17$Q91_10, hispanic_mixed_post17$Q10,
+            paired = TRUE, exact = FALSE) # 0.19
+wilcox.test(hispanic_mixed_pre17$Q91_11, hispanic_mixed_post17$Q11,
+            paired = TRUE, exact = FALSE) # 0.19
+wilcox.test(hispanic_mixed_pre17$Q91_12, hispanic_mixed_post17$Q12,
+            paired = TRUE, exact = FALSE) # 0.02!
+
+# Q6
+hispanic_mixed_pre17$Q91_6
+hispanic_mixed_q6_pre17 <- round(length(grep("5|6|7", hispanic_mixed_pre17$Q91_6)) /
+                             length(hispanic_mixed_pre17$Q91_6) * 100, 2)
+hispanic_mixed_q6_answer <- cat(hispanic_mixed_q6_pre17,"%") # 66.67%
+
+hispanic_mixed_post17$Q6
+hispanic_mixed_q6_post17 <- round(length(grep("5|6|7", hispanic_mixed_post17$Q6)) /
+                              length(hispanic_mixed_post17$Q6) * 100, 2)
+hispanic_mixed_q6_answer <- cat(hispanic_mixed_q6_post17,"%") # 88.89%
+
+white_black_pre17$Q91_6
+white_black_q6_pre17 <- round(length(grep("5|6|7", white_black_pre17$Q91_6)) /
+                             length(white_black_pre17$Q91_6) * 100, 2)
+white_black_q6_answer <- cat(white_black_q6_pre17,"%") # 72.22%
+
+white_black_post17$Q6
+white_black_q6_post17 <- round(length(grep("5|6|7", white_black_post17$Q6)) /
+                              length(white_black_post17$Q6) * 100, 2)
+white_black_q6_answer <- cat(white_black_q6_post17,"%") # 83.33%
+
+q6_race <- c(white_black_q6_post17, white_black_q6_pre17,
+             hispanic_mixed_q6_post17, hispanic_mixed_q6_pre17)
+names(q6_race) <- c("Post W+B", "Pre W+B",
+                      "Post H+M", "Pre H+M")
+q6_race_plot <- barplot(q6_race,
+                     main = "Q6 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q6_race_plot, y =c("83.33%","72.22%", "88.89%", "66.67%"), col = "black", pos = 4)
+
+# 12
+hispanic_mixed_pre17$Q91_12
+hispanic_mixed_q12_pre17 <- round(length(grep("5|6|7", hispanic_mixed_pre17$Q91_12)) /
+                             length(hispanic_mixed_pre17$Q91_12) * 100, 2)
+hispanic_mixed_q12_answer <- cat(hispanic_mixed_q12_pre17,"%") # 50.00%
+
+hispanic_mixed_post17$Q12
+hispanic_mixed_q12_post17 <- round(length(grep("5|6|7", hispanic_mixed_post17$Q12)) /
+                              length(hispanic_mixed_post17$Q12) * 100, 2)
+hispanic_mixed_q12_answer <- cat(hispanic_mixed_q12_post17,"%") # 94.44%
+
+white_black_pre17$Q91_12
+white_black_q12_pre17 <- round(length(grep("5|6|7", white_black_pre17$Q91_12)) /
+                             length(white_black_pre17$Q91_12) * 100, 2)
+white_black_q12_answer <- cat(white_black_q12_pre17,"%") # 55.56%
+
+white_black_post17$Q12
+white_black_q12_post17 <- round(length(grep("5|6|7", white_black_post17$Q12)) /
+                              length(white_black_post17$Q12) * 100, 2)
+white_black_q12_answer <- cat(white_black_q12_post17,"%") # 77.78%
+
+q12_race <- c(white_black_q12_post17, white_black_q12_pre17,
+             hispanic_mixed_q12_post17, hispanic_mixed_q12_pre17)
+names(q12_race) <- c("Post W+B", "Pre W+B",
+                      "Post H+M", "Pre H+M")
+q12_race_plot <- barplot(q12_race,
+                     main = "Q12 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q12_race_plot, y =c("77.78%","55.56%", "94.44%", "50.00%"), col = "black", pos = 4)
+
+```
+
+### Place Analysis
+```{r, echo=FALSE, include=FALSE}
+starbuck_pre17 <- grepl("starbuck|Starbuck", pre17$Place)
+dr.jones_pre17 <- grepl("jones|Jones", pre17$Place)
+highland_pre17 <- grepl("highland|Highland", pre17$Place)
+longfellow_pre17 <- grepl("longfellow|Longfellow|LONGFELLOW",
+                   pre17$Place)
+
+starbuck_post17 <- grepl("starbuck|Starbuck", post17$Place)
+dr.jones_post17 <- grepl("jones|Jones", post17$Place)
+highland_post17 <- grepl("highland|Highland", post17$Place)
+longfellow_post17 <- grepl("longfellow|Longfellow|LONGFELLOW",
+                   post17$Place)
+
+starbuck_mean_pre17 <- pre17[starbuck_pre17==TRUE,]
+starbuck_mean_pre17 <- starbuck_mean_pre17[,3:14]
+summary(stack(starbuck_mean_pre17)) # 5.9
+
+starbuck_mean_post17 <- post17[starbuck_post17==TRUE,]
+starbuck_mean_post17 <- starbuck_mean_post17[,3:14]
+summary(stack(starbuck_mean_post17)) # 5.13 Decrease!, n = 7
+
+dr_mean_pre17 <- pre17[dr.jones_pre17==TRUE,]
+dr_mean_pre17 <- dr_mean_pre17[,3:14]
+summary(stack(dr_mean_pre17)) # 3.7
+
+dr_mean_post17 <- post17[dr.jones_post17==TRUE,]
+dr_mean_post17 <- dr_mean_post17[,3:14]
+summary(stack(dr_mean_post17)) # 5.8, n = 8
+
+highland_mean_pre17 <- pre17[highland_pre17==TRUE,]
+highland_mean_pre17 <- subset(highland_mean_pre17, 
+                               highland_mean_pre17$IDENTIFY %in%
+                                  c("HS04", "HS05", "HS11") == FALSE)
+highland_mean_pre17 <- highland_mean_pre17[,3:14]
+summary(stack(highland_mean_pre17)) # 5.2, n = 21
+
+highland_mean_post17 <- post17[highland_post17==TRUE,]
+highland_mean_post17 <- highland_mean_post17[,3:14]
+summary(stack(highland_mean_post17)) # 5.8, n= 21
+
+longfellow_mean_pre17 <- pre17[longfellow_pre17==TRUE,]
+longfellow_mean_pre17 <- longfellow_mean_pre17[,3:14]
+summary(stack(longfellow_mean_pre17)) # 6.05, n = 5
+
+longfellow_mean_post17 <- post17[longfellow_post17==TRUE,]
+longfellow_mean_post17 <- longfellow_mean_post17[-4,] # Removing one unmatched
+longfellow_mean_post17 <- longfellow_mean_post17[,3:14]
+summary(stack(longfellow_mean_post17)) # 5.4, decreased!, n = 5
+
+boxplot(stack(starbuck_mean_post17)$values,
+        stack(starbuck_mean_pre17)$values,
+        horizontal = TRUE, main = "Starbuck Dist. Scale",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+
+boxplot(stack(dr_mean_post17)$values,
+        stack(dr_mean_pre17)$values,
+        horizontal = TRUE, main = "Dr.Jones Dist. Scale",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+
+boxplot(stack(highland_mean_post17)$values,
+        stack(highland_mean_pre17)$values,
+        horizontal = TRUE, main = "Highland Dist. Scale",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+
+boxplot(stack(longfellow_mean_post17)$values,
+        stack(longfellow_mean_pre17)$values,
+        horizontal = TRUE, main = "Longfellow Dist. Scale",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 17", "Pre 17"))
+
+# Overall
+starbuck <- wilcox.test(colSums(starbuck_mean_pre17),
+                         colSums(starbuck_mean_post17),
+                         paired = TRUE, exact = FALSE) # .005, decreased!
+dr.jones <- wilcox.test(colSums(dr_mean_pre17),
+                         colSums(dr_mean_post17),
+                         paired = TRUE, exact = FALSE) # .002!
+highland <- wilcox.test(colSums(highland_mean_pre17),
+                         colSums(highland_mean_post17),
+                         paired = TRUE, exact = FALSE) # .18
+longfellow <- wilcox.test(colSums(longfellow_mean_pre17),
+                         colSums(longfellow_mean_post17),
+                         paired = TRUE, exact = FALSE) # .02! decreased!
+
+wilcox.test(starbuck_mean_pre17$Q91_1, starbuck_mean_post17$Q1,
+            paired = TRUE, exact = FALSE) # .79
+wilcox.test(dr_mean_pre17$Q91_1, dr_mean_post17$Q1,
+            paired = TRUE, exact = FALSE) # .01
+wilcox.test(highland_mean_pre17$Q91_1, highland_mean_post17$Q1,
+            paired = TRUE, exact = FALSE) # .10
+wilcox.test(longfellow_mean_pre17$Q91_1,longfellow_mean_post17$Q1,
+            paired = TRUE, exact = FALSE) # .17
+
+s1 <- length(starbuck_pre17[starbuck_pre17 == TRUE]) # n = 7
+d1 <- length(dr.jones_pre17[dr.jones_pre17 == TRUE]) # n = 8
+h1 <- length(highland_pre17[highland_pre17 == TRUE]) #  n = 24
+l1 <- length(longfellow_pre17[longfellow_pre17 == TRUE]) # n = 5
+
+s2 <- length(starbuck_post17[starbuck_post17 == TRUE]) # n = 7
+d2 <- length(dr.jones_post17[dr.jones_post17 == TRUE]) # n = 8
+h2 <- length(highland_post17[highland_post17 == TRUE]) #  n = 21
+l2 <- length(longfellow_post17[longfellow_post17 == TRUE]) # n = 6
+
+par(mfrow=c(1,2))
+pre17_place <- cbind(s1,d1,h1,l1)
+colnames(pre17_place) <- c("Starbuck", "Dr.Jones", "Highland", "Longfellow")
+pre17_place_barplot <- barplot(pre17_place, main = "Pre 17 Distribution of Place", 
+                        xlab = "Place", ylab = "Number of Frequency",
+                        col = c("orange", "magenta", "yellow", "blue"),
+                        legend.text = TRUE, ylim = c(0,25), cex.names = 0.7,
+                        args.legend = list(x="topmright"))
+text(x = c("7", "8", "24", "5"), 
+     y = c("7", "8", "24", "5"),
+     pos = 2, col = "red")
+
+post17_place <- cbind(s2,d2,h2,l2)
+colnames(post17_place) <- c("Starbuck", "Dr.Jones", "Highland", "Longfellow")
+post17_place_barplot <- barplot(post17_place, main = "Post 17 Distribution of Place", 
+                        xlab = "Place", ylab = "Number of Frequency", cex.names = 0.7,
+                        col = c( "blue"),
+                        legend.text = TRUE, ylim = c(0,25),
+                        args.legend = list(x="topmright"))
+text(x = c("7", "8", "21", "6"), 
+     y = c("7", "8", "21", "6"),
+     pos = 3, col = "red")
+
+starbuck_longfellow_pre17 <- rbind(starbuck_mean_pre17, longfellow_mean_pre17) # n =12
+starbuck_longfellow_post17 <- rbind(starbuck_mean_post17, longfellow_mean_post17) # n =12
+dr_highland_pre17 <- rbind(dr_mean_pre17, highland_mean_pre17) # n = 29
+dr_highland_post17 <- rbind(dr_mean_post17, highland_mean_post17) # n = 29
+
+wilcox.test(starbuck_longfellow_pre17$Q91_1, starbuck_longfellow_post17$Q1,
+            paired = TRUE, exact = FALSE) # 0.19
+wilcox.test(starbuck_longfellow_pre17$Q91_2, starbuck_longfellow_post17$Q2,
+            paired = TRUE, exact = FALSE) # 0.06
+wilcox.test(starbuck_longfellow_pre17$Q91_3, starbuck_longfellow_post17$Q3,
+            paired = TRUE, exact = FALSE) # 0.02!
+wilcox.test(starbuck_longfellow_pre17$Q91_4, starbuck_longfellow_post17$Q4,
+            paired = TRUE, exact = FALSE) # 0.14
+wilcox.test(starbuck_longfellow_pre17$Q91_5, starbuck_longfellow_post17$Q5,
+            paired = TRUE, exact = FALSE) # 0.52
+wilcox.test(starbuck_longfellow_pre17$Q91_6, starbuck_longfellow_post17$Q6,
+            paired = TRUE, exact = FALSE) # 0.08
+wilcox.test(starbuck_longfellow_pre17$Q91_7, starbuck_longfellow_post17$Q7,
+            paired = TRUE, exact = FALSE) # 0.03!
+wilcox.test(starbuck_longfellow_pre17$Q91_8, starbuck_longfellow_post17$Q8,
+            paired = TRUE, exact = FALSE) # 0.47
+wilcox.test(starbuck_longfellow_pre17$Q91_9, starbuck_longfellow_post17$Q9,
+            paired = TRUE, exact = FALSE) # 0.13
+wilcox.test(starbuck_longfellow_pre17$Q91_10, starbuck_longfellow_post17$Q10,
+            paired = TRUE, exact = FALSE) # 0.09
+wilcox.test(starbuck_longfellow_pre17$Q91_11, starbuck_longfellow_post17$Q11,
+            paired = TRUE, exact = FALSE) # 0.79
+wilcox.test(starbuck_longfellow_pre17$Q91_12, starbuck_longfellow_post17$Q12,
+            paired = TRUE, exact = FALSE) # 0.76
+
+# Q3
+starbuck_longfellow_pre17$Q91_3
+starbuck_longfellow_q3_pre17 <- round(length(grep("5|6|7", starbuck_longfellow_pre17$Q91_3)) /
+                                          length(starbuck_longfellow_pre17$Q91_3) * 100, 2)
+starbuck_longfellow_pre17_q3_answer <- cat(starbuck_longfellow_q3_pre17,"%") # 100.00%
+
+starbuck_longfellow_post17$Q3
+starbuck_longfellow_q3_post17 <- round(length(grep("5|6|7", starbuck_longfellow_post17$Q3))
+                                       / length(starbuck_longfellow_post17$Q3) * 100, 2)
+starbuck_longfellow_post17_q3_answer <- cat(starbuck_longfellow_q3_post17,"%") # 83.33%
+
+dr_highland_pre17$Q91_3
+dr_highland_q3_pre17 <- round(length(grep("5|6|7", dr_highland_pre17$Q91_3)) /
+                             length(dr_highland_pre17$Q91_3) * 100, 2)
+dr_highland_q3_answer <- cat(dr_highland_q3_pre17,"%") # 75.86%
+
+dr_highland_post17$Q3
+dr_highland_q3_post17 <- round(length(grep("5|6|7", dr_highland_post17$Q3)) /
+                              length(dr_highland_post17$Q3) * 100, 2)
+dr_highland_q3_answer <- cat(dr_highland_q3_post17,"%") # 89.66%
+
+q3_place <- c(dr_highland_q3_post17, dr_highland_q3_pre17,
+             starbuck_longfellow_q3_post17, starbuck_longfellow_q3_pre17)
+names(q3_place) <- c("Post Dr.J+High", "Pre Dr.+High",
+                      "Post Star+Long", "Pre Star+Long")
+q3_place_plot <- barplot(q3_place,
+                     main = "Q3 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q3_place_plot, y =c("89.66%","75.86%", "83.33%", "100.00%"), col = "black", pos = 4)
+
+# Q7
+starbuck_longfellow_pre17$Q91_7
+starbuck_longfellow_q7_pre17 <- round(length(grep("5|6|7", starbuck_longfellow_pre17$Q91_7)) /
+                                          length(starbuck_longfellow_pre17$Q91_7) * 100, 2)
+starbuck_longfellow_pre17_q7_answer <- cat(starbuck_longfellow_q7_pre17,"%") # 100.00%
+
+starbuck_longfellow_post17$Q7
+starbuck_longfellow_q7_post17 <- round(length(grep("5|6|7", starbuck_longfellow_post17$Q7))
+                                       / length(starbuck_longfellow_post17$Q7) * 100, 2)
+starbuck_longfellow_post17_q7_answer <- cat(starbuck_longfellow_q7_post17,"%") # 75.00%
+
+dr_highland_pre17$Q91_7
+dr_highland_q7_pre17 <- round(length(grep("5|6|7", dr_highland_pre17$Q91_7)) /
+                             length(dr_highland_pre17$Q91_7) * 100, 2)
+dr_highland_q7_answer <- cat(dr_highland_q7_pre17,"%") # 58.62%
+
+dr_highland_post17$Q7
+dr_highland_q7_post17 <- round(length(grep("5|6|7", dr_highland_post17$Q7)) /
+                              length(dr_highland_post17$Q7) * 100, 2)
+dr_highland_q7_answer <- cat(dr_highland_q7_post17,"%") # 79.31%
+
+q7_place <- c(dr_highland_q7_post17, dr_highland_q7_pre17,
+             starbuck_longfellow_q7_post17, starbuck_longfellow_q7_pre17)
+names(q7_place) <- c("Post Dr.J+High", "Pre Dr.+High",
+                      "Post Star+Long", "Pre Star+Long")
+q7_place_plot <- barplot(q7_place,
+                     main = "Q7 Percentage Change", horiz=TRUE,
+                     space = c(0,0,.3,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","cyan","magenta","magenta"))
+text(x=q7_place_plot, y =c("79.31%","58.62%", "75.00%", "100.00%"), col = "black", pos = 4)
+
+
+```
+
+## Year 2018 Analysis
+### Overall Result
+```{r, echo=FALSE, include=FALSE}
+pre18 <- read_excel("C:/Users/Ji Hoon/Desktop/Data Analysis/2018/NMP8_TW_Pre_WI_cleansed.xls")
+post18 <- read_excel("C:/Users/Ji Hoon/Desktop/Data Analysis/2018/NMP8_TW_Final_WI_cleansed.xlsx")
+# is.na(pre18$ID); is.na(post18$ID)
+pre18 <- subset(pre18, pre18$ID %in% post18$ID == TRUE)
+pre18 <- arrange(pre18, pre18$ID) # N=26
+post18 <- subset(post18, post18$ID %in% pre18$ID == TRUE)
+post18 <- arrange(post18, post18$ID) # N=26
+
+pre18_mean <- colSums(pre18[ ,3:14])
+post18_mean <- colSums(post18[ ,3:14])
+pre18_stack <- stack(pre18[,3:14])
+post18_stack <- stack(post18[,3:14])
+summary(pre18_stack) # 5.01
+summary(post18_stack) # 5.12
+
+g3 <- ggplot(pre18_stack, aes(pre18_stack$values, fill= pre18_stack$ind)) +
+    geom_histogram(bins = 25) + labs(fill = "Questions 1-12") +
+    ggtitle("Overall Distribution of Pre 18") + ylab("Number of Frequency") +
+    xlab("Scale 1-7") + ylim(0,150)
+g4 <- ggplot(post18_stack, aes(post18_stack$values, fill =pre18_stack$ind)) + geom_histogram(bins = 25) + labs(fill = "Questions 1-12") +
+    ggtitle("Overall Distribution of Post 17") + ylab("Number of Frequency") +
+    xlab("Scale 1-7") + ylim(0,150)
+grid.arrange(g3, g4, ncol=2)
+
+```
+
+```{r, echo=FALSE, include=FALSE}
+post18_test1 <- t.test(pre18_mean, post18_mean, paired = TRUE) # .32
+post18_test2 <- wilcox.test(pre18_mean,post18_mean, paired = TRUE, exact = FALSE) # .22
+cat("The p-value for the change of sum of each question from Paired T-test was",
+    round(post18_test1$p.value,3))
+cat("The p-value for the change of sum of each question from Mann-Whitney U Test
+    was", round(post18_test2$p.value,3))
+
+par(mfrow = c(1,2))
+boxplot(pre18$Q91_1, pre18$Q91_2, pre18$Q91_3, pre18$Q91_4, pre18$Q91_5,
+        pre18$Q91_6, pre18$Q91_7, pre18$Q91_8, pre18$Q91_9, pre18$Q91_10,
+        pre18$Q91_11, pre18$Q91_12,
+        main = "Multiple Boxplots for Pre 18 Survey", 
+        names = c("1","2","3","4","5","6","7","8","9","10","11","12"),
+        col = c("magenta","cyan","green","pink","red","orange"), 
+        horizontal = FALSE,
+        ylab = "Scale 1-7", xlab = "Question 1-12")
+boxplot(post18$Q91_1, post18$Q91_2, post18$Q91_3, post18$Q91_4, post18$Q91_5,
+        post18$Q91_6, post18$Q91_7, post18$Q91_8, post18$Q91_9, post18$Q91_10,
+        post18$Q91_11, post18$Q91_12,
+        main = "Multiple Boxplots for Post 18 Survey", 
+        names = c("1","2","3","4","5","6","7","8","9","10","11","12"),
+        col = c("magenta","cyan","green","pink","red","orange"), 
+        horizontal = FALSE,
+        ylab = "Scale 1-7", xlab = "Question 1-12")
+
+wilcox.test(pre18$Q91_1,post18$Q91_1, paired = TRUE, exact = FALSE) # .15
+wilcox.test(pre18$Q91_2,post18$Q91_2, paired = TRUE, exact = FALSE) # .64
+wilcox.test(pre18$Q91_3,post18$Q91_3, paired = TRUE, exact = FALSE) # .55
+wilcox.test(pre18$Q91_4,post18$Q91_4, paired = TRUE, exact = FALSE) # .13
+wilcox.test(pre18$Q91_5,post18$Q91_5, paired = TRUE, exact = FALSE) # .63
+wilcox.test(pre18$Q91_6,post18$Q91_6, paired = TRUE, exact = FALSE) # .84
+wilcox.test(pre18$Q91_7,post18$Q91_7, paired = TRUE, exact = FALSE) # .75
+wilcox.test(pre18$Q91_8,post18$Q91_8, paired = TRUE, exact = FALSE) # .28
+wilcox.test(pre18$Q91_9,post18$Q91_9, paired = TRUE, exact = FALSE) # .85
+wilcox.test(pre18$Q91_10,post18$Q91_10, paired = TRUE, exact = FALSE) # .13
+wilcox.test(pre18$Q91_11,post18$Q91_11, paired = TRUE, exact = FALSE) # .82
+wilcox.test(pre18$Q91_12,post18$Q91_12, paired = TRUE, exact = FALSE) # .34
+
+```
+
+### Gender Analysis
+```{r, echo=FALSE, include=FALSE}
+par(mfrow=c(1,2))
+pre18_gender <- table(pre18$Gender)
+names(pre18_gender) <- c("Female", "Male", "Other")
+pre18_gender_barplot <- barplot(pre18_gender, main = "Pre 18 Distribution of Gender", 
+                        xlab = "Gender", ylab = "Number of Frequency",
+                        col = c("cyan","orange","magenta"), ylim = c(0,20))
+text(x = c("10", "15", "1"), y = c("10", "15", "1"), pos = 3, col = "red")
+post18_gender <- table(post18$Gender)
+names(post18_gender) <- c("Female", "Male")
+post18_gender_barplot <- barplot(post18_gender, main = "Post 18 Distribution of Gender",
+                         xlab = "Gender", ylab = "Number of Frequency",
+                         col = c("cyan","orange"), ylim = c(0,20))
+text(x = c("13", "13"), y = c("13", "13"), pos = 3, col = "red")
+
+# FEMALE ONLY
+pre18.female <- filter(pre18,pre18$Gender == 1) %>% arrange(ID) 
+# n = 10
+post18.female <- filter(post18,post18$Gender == 1) %>% arrange(ID) 
+# n = 13, sample sizes do not mach each other
+pre18.female <- filter(pre18.female, pre18.female$ID %in% post18.female$ID)
+post18.female <- filter(post18.female, post18.female$ID %in% pre18.female$ID) 
+identical(pre18.female$ID, post18.female$ID)
+# n=10, pre and post are in pair now
+
+# MALE ONLY
+pre18.male <- filter(pre18,pre18$Gender == 2) %>% arrange(ID) # n = 15
+post18.male <- filter(post18,post18$Gender == 2) %>% arrange(ID) # n = 13
+pre18.male <- filter(pre18.male, pre18.male$ID %in% post18.male$ID) # 13
+post18.male <- filter(post18.male, post18.male$ID %in% pre18.male$ID) # 13
+
+# STACK
+par(mfrow= c(1,2))
+pre18.female.stack <- stack(pre18.female[,3:14])
+post18.female.stack <- stack(post18.female[,3:14])
+summary(pre18.female.stack$values); summary(post18.female.stack$values) # 5.4 -> 5.2
+boxplot(post18.female.stack$values, pre18.female.stack$values,  
+        horizontal = TRUE, main = "Female Pre 18 vs. Post 18",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 18", "Pre 18"))
+pre18.male.stack <- stack(pre18.male[,3:14])
+post18.male.stack <- stack(post18.male[,3:14]) # 4.72 -> 4.84
+summary(pre18.male.stack$values); summary(post18.male.stack$values)
+boxplot(post18.male.stack$values, pre18.male.stack$values,  
+        horizontal = TRUE, main = "Male Pre 18 vs. Post 18",
+        xlab = "Scale 1-7" , col = c("green" , "pink"), 
+        names = c("post 18", "Pre 18"))
+
+wilcox.test(pre18.female$Q91_1, post18.female$Q91_1, paired = TRUE, exact = FALSE) # 0.34
+wilcox.test(pre18.female$Q91_2, post18.female$Q91_2, paired = TRUE, exact = FALSE) # 0.78
+wilcox.test(pre18.female$Q91_3, post18.female$Q91_3, paired = TRUE, exact = FALSE) # 1
+wilcox.test(pre18.female$Q91_4, post18.female$Q91_4, paired = TRUE, exact = FALSE) # 0.49
+wilcox.test(pre18.female$Q91_5, post18.female$Q91_5, paired = TRUE, exact = FALSE) # 0.78
+wilcox.test(pre18.female$Q91_6, post18.female$Q91_6, paired = TRUE, exact = FALSE) # 0.67
+wilcox.test(pre18.female$Q91_7, post18.female$Q91_7, paired = TRUE, exact = FALSE) # 0.41
+wilcox.test(pre18.female$Q91_8, post18.female$Q91_8, paired = TRUE, exact = FALSE) # 0.20
+wilcox.test(pre18.female$Q91_9, post18.female$Q91_9, paired = TRUE, exact = FALSE) # 1
+wilcox.test(pre18.female$Q91_10, post18.female$Q91_10, paired = TRUE, exact = FALSE) # 0.17
+wilcox.test(pre18.female$Q91_11, post18.female$Q91_11, paired = TRUE, exact = FALSE) # 0.07
+wilcox.test(pre18.female$Q91_12, post18.female$Q91_12, paired = TRUE, exact = FALSE) # 0.79
+
+```
+
+### Race Analysis
+```{r, echo=FALSE, include=FALSE}
+par(mfrow=c(1,2))
+pre18_race <- table(pre18$Race)
+names(pre18_race) <- c("Native", "Black", "Hispanic", "White", "More than one")
+pre18_race_barplot <- barplot(pre18_race, main = "Pre 18 Distribution of Race", 
+                        xlab = "Race ", ylab = "Number of Frequency",
+                        col = c("cyan","orange","magenta", "yellow", "blue"),
+                        legend.text = TRUE, ylim = c(0,10), cex.names = .7,
+                        args.legend = list(x="bottomright", cex=.7))
+text(x = c("1", "8", "8", "5", "4"), 
+     y = c("1", "8", "8", "5", "4"),
+     pos = 3, col = "red")
+
+post18_race <- table(post18$Race)
+names(post18_race) <- c("Native", "Black", "Hispanic", "White", "More than one")
+post18_race_barplot <- barplot(post18_race, main = "Post 18 Distribution of Race", 
+                        xlab = "Race ", ylab = "Number of Frequency",
+                        col = c("cyan", "orange","magenta", "yellow", "blue"),
+                        legend.text = TRUE, ylim = c(0,15), cex.names = .7,
+                        args.legend = list(x="topright", cex = .7))
+text(x = c("1", "6", "12", "2", "5"), 
+     y = c("1", "6", "12", "2", "5"),
+     pos = 3, col = "red")
+
+# Testing if pre matches with post in terms of ethnicity 
+pre17_black <- subset(pre17, pre17$Race == 3)
+post17_black <- subset(post17, post17$Race == 3)
+black_match1 <- subset(pre17$IDENTIFY, pre17$Race == 3) %in% 
+    subset(post17$IDENTIFY, post17$Race == 3)
+black_match2 <- subset(post17$IDENTIFY, post17$Race == 3) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 3)
+black_match1 <- pre17_black[black_match1 %in% TRUE,]
+black_match2 <- post17_black[black_match2 %in% TRUE, ]
+
+pre17_hispanic <- subset(pre17, pre17$Race == 5)
+post17_hispanic <- subset(post17, post17$Race == 5)
+hispanic_match1 <- subset(pre17$IDENTIFY, pre17$Race == 5) %in% 
+    subset(post17$IDENTIFY, post17$Race == 5)
+hispanic_match2 <- subset(post17$IDENTIFY, post17$Race == 5) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 5)
+hispanic_match1 <- pre17_hispanic[hispanic_match1 %in% TRUE,]
+hispanic_match2 <- post17_hispanic[hispanic_match2 %in% TRUE, ]
+
+pre17_white <- subset(pre17, pre17$Race == 6)
+post17_white <- subset(post17, post17$Race == 6)
+white_match1 <- subset(pre17$IDENTIFY, pre17$Race == 6) %in%
+    subset(post17$IDENTIFY, post17$Race == 6)
+white_match2 <- subset(post17$IDENTIFY, post17$Race == 6) %in% 
+    subset(pre17$IDENTIFY, pre17$Race == 6)
+white_match1 <- pre17_white[white_match1 %in% TRUE,]
+white_match2 <- post17_white[white_match2 %in% TRUE, ]
+
+pre17_mixed <- subset(pre17, pre17$Race == 7)
+post17_mixed <- subset(post17, post17$Race == 7)
+mixed_match1 <- subset(pre17$IDENTIFY, pre17$Race == 7) %in%
+    subset(post17$IDENTIFY, post17$Race == 7)
+mixed_match2 <- subset(post17$IDENTIFY, post17$Race == 7) %in%
+    subset(pre17$IDENTIFY, pre17$Race == 7)
+mixed_match1 <- pre17_mixed[mixed_match1 %in% TRUE, ]
+mixed_match2 <- post17_mixed[mixed_match2 %in% TRUE, ]
+
+
+```
+
+### Place Analysis
+```{r, echo=FALSE, include=FALSE}
+starbuck_pre18 <- grepl("starbuck|Starbuck", pre18$School)
+dr.jones_pre18 <- grepl("jones|Jones", pre18$School)
+highland_pre18 <- grepl("highland|Highland|HCS", pre18$School)
+longfellow_pre18 <- grepl("longfellow|Longfellow|LONGFELLOW",
+                   pre18$School)
+
+starbuck_post18 <- grepl("starbuck|Starbuck", post18$School)
+dr.jones_post18 <- grepl("jones|Jones", post18$School)
+highland_post18 <- grepl("highland|Highland|HCS", post18$School)
+longfellow_post18 <- grepl("longfellow|Longfellow|LONGFELLOW",
+                   post18$School)
+
+starbuck_mean_pre18 <- pre18[starbuck_pre18==TRUE,]
+starbuck_mean_pre18 <- starbuck_mean_pre18[,3:14]
+summary(stack(starbuck_mean_pre18)) # 5.5
+
+starbuck_mean_post18 <- post18[starbuck_post18==TRUE,]
+starbuck_mean_post18 <- starbuck_mean_post18[,3:14]
+summary(stack(starbuck_mean_post18)) # 4.9 Decrease!, n = 5
+
+dr_mean_pre18 <- pre18[dr.jones_pre18==TRUE,]
+dr_mean_pre18 <- dr_mean_pre18[,3:14]
+summary(stack(dr_mean_pre18)) # 4.8
+
+dr_mean_post18 <- post18[dr.jones_post18==TRUE,]
+dr_mean_post18 <- dr_mean_post18[,3:14]
+summary(stack(dr_mean_post18)) # 5.1, n = 8
+
+highland_mean_pre18 <- pre18[highland_pre18==TRUE,]
+highland_mean_pre18 <- highland_mean_pre18[,3:14]
+summary(stack(highland_mean_pre18)) # 4.9, n = 13
+
+highland_mean_post18 <- post18[highland_post18==TRUE,]
+highland_mean_post18 <- subset(highland_mean_post18, 
+                               highland_mean_post18$ID %in% c("HCS12") == FALSE)
+highland_mean_post18 <- highland_mean_post18[,3:14]
+summary(stack(highland_mean_post18)) # 5.2, n= 13
+
+s1 <- length(starbuck_pre18[starbuck_pre18 == TRUE]) # n = 5
+d1 <- length(dr.jones_pre18[dr.jones_pre18 == TRUE]) # n = 8
+h1 <- length(highland_pre18[highland_pre18 == TRUE]) #  n = 12
+l1 <- length(longfellow_pre18[longfellow_pre18 == TRUE]) # n = 0
+
+s2 <- length(starbuck_post18[starbuck_post18 == TRUE]) # n = 5
+d2 <- length(dr.jones_post18[dr.jones_post18 == TRUE]) # n = 8
+h2 <- length(highland_post18[highland_post18 == TRUE]) #  n = 13
+l2 <- length(longfellow_post18[longfellow_post18 == TRUE]) # n = 0
+
+par(mfrow=c(1,2))
+pre18_place <- cbind(s1,d1,h1)
+colnames(pre18_place) <- c("Starbuck", "Dr.Jones", "Highland")
+pre18_place_barplot <- barplot(pre18_place, main = "Pre 18 Distribution of Place", 
+                        xlab = "Place", ylab = "Number of Frequency",
+                        col = c("orange", "magenta", "yellow"),
+                        legend.text = TRUE, ylim = c(0,15), cex.names = 0.7,
+                        args.legend = list(x="topright"))
+text(x = c("5", "8", "12"), 
+     y = c("5", "8", "12"),
+     pos = 2, col = "red")
+
+post18_place <- cbind(s2,d2,h2)
+colnames(post18_place) <- c("Starbuck", "Dr.Jones", "Highland")
+post18_place_barplot <- barplot(post18_place, main = "Post 18 Distribution of Place", 
+                        xlab = "Place", ylab = "Number of Frequency", cex.names = 0.7,
+                        col = c( "blue"),
+                        legend.text = TRUE, ylim = c(0,15),
+                        args.legend = list(x="topright"))
+text(x = c("5", "8", "13"), 
+     y = c("5", "8", "13"),
+     pos = 3, col = "red")
+
+dr_highland_pre18 <- rbind(dr_mean_pre18, highland_mean_pre18) # n = 20
+dr_highland_post18 <- rbind(dr_mean_post18, highland_mean_post18) # n = 20
+
+wilcox.test(dr_highland_pre18$Q91_1, dr_highland_post18$Q91_1,
+            paired = TRUE, exact = FALSE) # 0.05!
+wilcox.test(dr_highland_pre18$Q91_2, dr_highland_post18$Q91_2,
+            paired = TRUE, exact = FALSE) # 0.30
+wilcox.test(dr_highland_pre18$Q91_3, dr_highland_post18$Q91_3,
+            paired = TRUE, exact = FALSE) # 0.50
+wilcox.test(dr_highland_pre18$Q91_4, dr_highland_post18$Q91_4,
+            paired = TRUE, exact = FALSE) # 0.30
+wilcox.test(dr_highland_pre18$Q91_5, dr_highland_post18$Q91_5,
+            paired = TRUE, exact = FALSE) # 0.65
+wilcox.test(dr_highland_pre18$Q91_6, dr_highland_post18$Q91_6,
+            paired = TRUE, exact = FALSE) # 0.59
+wilcox.test(dr_highland_pre18$Q91_7, dr_highland_post18$Q91_7,
+            paired = TRUE, exact = FALSE) # 0.46
+wilcox.test(dr_highland_pre18$Q91_8, dr_highland_post18$Q91_8,
+            paired = TRUE, exact = FALSE) # 0.12
+wilcox.test(dr_highland_pre18$Q91_9, dr_highland_post18$Q91_9,
+            paired = TRUE, exact = FALSE) # 0.55
+wilcox.test(dr_highland_pre18$Q91_10, dr_highland_post18$Q91_10,
+            paired = TRUE, exact = FALSE) # 0.57
+wilcox.test(dr_highland_pre18$Q91_11, dr_highland_post18$Q91_11,
+            paired = TRUE, exact = FALSE) # 0.14
+wilcox.test(dr_highland_pre18$Q91_12, dr_highland_post18$Q91_12,
+            paired = TRUE, exact = FALSE) # 0.26
+
+dr_highland_pre18$Q91_1
+dr_highland_q1_pre18 <- round(length(grep("5|6|7", dr_highland_pre18$Q91_1)) /
+                             length(dr_highland_pre18$Q91_1) * 100, 2)
+dr_highland_q1_answer <- cat(dr_highland_q1_pre18,"%") # 70.00%
+
+dr_highland_post18$Q91_1
+dr_highland_q1_post18 <- round(length(grep("5|6|7", dr_highland_post18$Q91_1)) /
+                              length(dr_highland_post18$Q91_1) * 100, 2)
+dr_highland_q1_answer <- cat(dr_highland_q1_post18,"%") # 95.00%
+
+q1_place <- c(dr_highland_q1_post18, dr_highland_q1_pre18)
+names(q1_place) <- c("Post Dr.J+High", "Pre Dr.+High")
+q1_place_plot <- barplot(q1_place,
+                     main = "Q1 Percentage Change", horiz=TRUE,
+                     space = c(0.5,0), legend.text = TRUE,
+                     xlim = c(0,100), args.legend = list(x = "topright", cex = .7),
+                     col = c("cyan","magenta"))
+text(x=q1_place_plot, y =c("95.00%", "70.00%"), col = "black", pos = 4)
+
+```
